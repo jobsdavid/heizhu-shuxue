@@ -149,7 +149,58 @@
             android:textSize="19sp" />
     </LinearLayout>
 
-    <!-- 四个入口 -->
+
+    <!-- 每日挑战 -->
+    <LinearLayout
+        android:id="@+id/cardDaily"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/selector_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚡"
+            android:textSize="24sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="每日挑战"
+            android:textColor="@color/accent"
+            android:textSize="19sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDailyInfo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:text="10 题全对点亮今天"
+            android:textColor="@color/text_dim"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/tvDailyAction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="去挑战 ›"
+            android:textColor="@color/blue"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- 入口 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -171,13 +222,13 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="12dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🚀"
-                android:textSize="52sp" />
+                android:textSize="38sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -185,7 +236,7 @@
                 android:layout_marginTop="6dp"
                 android:text="开始练习"
                 android:textColor="@color/text"
-                android:textSize="34sp"
+                android:textSize="27sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -206,7 +257,7 @@
                 android:gravity="center"
                 android:text="按 OK 开始"
                 android:textColor="@color/text_dim"
-                android:textSize="16sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -259,13 +310,13 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📕"
-                android:textSize="48sp" />
+                android:textSize="36sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -273,7 +324,7 @@
                 android:layout_marginTop="6dp"
                 android:text="错题本"
                 android:textColor="@color/text"
-                android:textSize="28sp"
+                android:textSize="23sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -297,13 +348,13 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📈"
-                android:textSize="48sp" />
+                android:textSize="36sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -311,7 +362,7 @@
                 android:layout_marginTop="6dp"
                 android:text="成长曲线"
                 android:textColor="@color/text"
-                android:textSize="28sp"
+                android:textSize="23sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -334,13 +385,13 @@
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⚙️"
-                android:textSize="48sp" />
+                android:textSize="36sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -348,7 +399,7 @@
                 android:layout_marginTop="6dp"
                 android:text="设置"
                 android:textColor="@color/text"
-                android:textSize="28sp"
+                android:textSize="23sp"
                 android:textStyle="bold" />
 
             <TextView

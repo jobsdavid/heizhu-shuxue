@@ -47,10 +47,23 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
             " · 平均 ${Fmt.sec(summary.avgSeconds)} 秒/题"
 
         val rank = Analytics.rank(summary.power)
-        b.tvLine3.text = if (summary.power > 0)
-            "算力 ${summary.power.toInt()}（${rank.name}）" +
-                if (unlocked != null) " · 已解锁「${unlocked.name}」" else ""
-        else ""
+        val progress = act.lastUnlockProgress
+        b.tvLine3.text = buildString {
+            if (summary.power > 0) append("算力 ${summary.power.toInt()}（${rank.name}）")
+            when {
+                unlocked != null -> append(" · 已解锁「${unlocked.name}」")
+                progress != null -> {
+                    append("\n距离解锁「${progress.nextStageName}」：")
+                    val parts = mutableListOf<String>()
+                    if (progress.needMoreQuestions > 0) parts.add("还差 ${progress.needMoreQuestions} 题")
+                    if (progress.needMoreAccuracy > 0) {
+                        parts.add("正确率差 ${String.format("%.1f", progress.needMoreAccuracy)}%")
+                    }
+                    if (parts.isEmpty()) parts.add("马上就能解锁")
+                    append(parts.joinToString(" · "))
+                }
+            }
+        }
         b.tvLine3.setTextColor(Ui.color(requireContext(), if (unlocked != null) R.color.accent else R.color.blue))
 
         val wrong = summary.attempts.filter { !it.firstOk }

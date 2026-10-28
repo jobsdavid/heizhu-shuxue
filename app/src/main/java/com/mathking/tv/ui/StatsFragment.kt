@@ -30,6 +30,9 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentStatsBinding.bind(view)
+        b.btnAchievements.setOnClickListener {
+            (activity as? com.mathking.tv.MainActivity)?.navigate(AchievementsFragment())
+        }
         load()
     }
 

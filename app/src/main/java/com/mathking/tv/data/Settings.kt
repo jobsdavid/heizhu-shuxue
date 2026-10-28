@@ -72,13 +72,26 @@ class Settings(context: Context) {
         unlockedCache = ids
     }
 
-    /** 一局结束后判断是否达到解锁下一阶段的标准 */
-    fun checkUnlock(stage: StageConfig, accuracy: Double, total: Int): StageConfig? {
-        if (total < 10 || accuracy < 80.0) return null
+    /**
+     * 解锁下一阶段：看该阶段的「累计」表现，而不是某一局的手气
+     * —— 累计至少 20 题、正确率至少 85%
+     */
+    fun checkUnlock(stage: StageConfig, questions: Int, accuracy: Double): StageConfig? {
+        if (questions < UNLOCK_MIN_QUESTIONS || accuracy < UNLOCK_MIN_ACCURACY) return null
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
         unlock(next.id)
         return next
+    }
+
+    fun unlockProgress(stage: StageConfig, questions: Int, accuracy: Double): UnlockProgress? {
+        val next = StageCatalog.next(stage) ?: return null
+        if (isUnlocked(next.id)) return null
+        return UnlockProgress(
+            nextStageName = next.name,
+            questions = questions,
+            accuracy = accuracy
+        )
     }
 
     val playerId: String
@@ -97,6 +110,11 @@ class Settings(context: Context) {
             .putBoolean("unlocked_all", false)
             .apply()
         unlockedCache = null
+    }
+
+    companion object {
+        const val UNLOCK_MIN_QUESTIONS = 20
+        const val UNLOCK_MIN_ACCURACY = 85.0
     }
 
     /** 关闭「解锁全部」时，回到默认的 s1~s3 */

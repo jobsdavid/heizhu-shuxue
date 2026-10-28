@@ -103,7 +103,8 @@ data class WrongEntry(
     val answer: String,
     val wrongCount: Int,
     val streak: Int,
-    val mastered: Boolean
+    val mastered: Boolean,
+    val tag: String = "错题"
 )
 
 /** 每日统计点 */
@@ -141,4 +142,26 @@ data class Overall(
 ) {
     val accuracy: Double get() = if (questions == 0) 0.0 else correct * 100.0 / questions
     val avgSeconds: Double get() = if (questions == 0) 0.0 else msTotal / 1000.0 / questions
+}
+
+/** 距离解锁下一阶段的进度 */
+data class UnlockProgress(
+    val nextStageName: String,
+    val questions: Int,
+    val accuracy: Double
+) {
+    val needMoreQuestions: Int
+        get() = (Settings.UNLOCK_MIN_QUESTIONS - questions).coerceAtLeast(0)
+    val needMoreAccuracy: Double
+        get() = (Settings.UNLOCK_MIN_ACCURACY - accuracy).coerceAtLeast(0.0)
+}
+
+/** 每日挑战记录 */
+data class DailyRecord(
+    val day: String,
+    val stageId: String,
+    val total: Int,
+    val correct: Int
+) {
+    val full: Boolean get() = total > 0 && correct == total
 }

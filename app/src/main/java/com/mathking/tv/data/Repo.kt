@@ -108,6 +108,7 @@ class Repo(context: Context) {
                     put("streak", 0)
                     put("last_wrong_at", now)
                     put("mastered", 0)
+                    put("tag", q.tag)
                 }
                 db.insert("wrong_item", null, cv)
             }
@@ -134,7 +135,7 @@ class Repo(context: Context) {
             args.add(stageId)
         }
         if (!includeMastered) where.append(" AND mastered=0")
-        val sql = "SELECT id, stage_id, expr, answer, wrong_count, streak, mastered FROM wrong_item $where " +
+        val sql = "SELECT id, stage_id, expr, answer, wrong_count, streak, mastered, tag FROM wrong_item $where " +
             "ORDER BY mastered ASC, wrong_count DESC, last_wrong_at DESC LIMIT 80"
         val list = mutableListOf<WrongEntry>()
         helper.readableDatabase.rawQuery(sql, args.toTypedArray()).use { c ->
@@ -147,7 +148,8 @@ class Repo(context: Context) {
                         answer = c.getString(3),
                         wrongCount = c.getInt(4),
                         streak = c.getInt(5),
-                        mastered = c.getInt(6) == 1
+                        mastered = c.getInt(6) == 1,
+                        tag = c.getString(7) ?: "错题"
                     )
                 )
             }
@@ -166,13 +168,22 @@ class Repo(context: Context) {
         }
     }
 
+    /** 已经连续答对 2 次、从错题本毕业的数量 */
+    fun masteredCount(): Int {
+        helper.readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM wrong_item WHERE mastered=1", null
+        ).use { c ->
+            return if (c.moveToFirst()) c.getInt(0) else 0
+        }
+    }
+
     /** 从错题本里抽一道题用于重练 */
     fun wrongQuestions(stageId: String? = null, limit: Int = 30): List<Question> {
         return wrongItems(stageId, includeMastered = false).take(limit).map { e ->
             Question(
                 text = e.expr,
                 answer = e.answer.substringBefore("/").toIntOrNull() ?: 0,
-                tag = "错题重练",
+                tag = e.tag,
                 answerText = e.answer,
                 speak = toSpeak(e.expr),
                 findError = e.expr.contains("=")
@@ -222,7 +233,8 @@ class Repo(context: Context) {
             """
             SELECT COUNT(*), IFNULL(SUM(total),0), IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0)
             FROM session
-            WHERE finished=1 AND date(started_at/1000, 'unixepoch', 'localtime') = ?
+            WHERE finished=1 AND mode != 'challenge'
+              AND date(started_at/1000, 'unixepoch', 'localtime') = ?
             """.trimIndent(),
             arrayOf(today)
         ).use { c ->
@@ -240,7 +252,7 @@ class Repo(context: Context) {
             SELECT date(started_at/1000, 'unixepoch', 'localtime') AS day,
                    SUM(total), SUM(correct_first), SUM(duration_ms)
             FROM session
-            WHERE finished=1 AND started_at >= ?
+            WHERE finished=1 AND mode != 'challenge' AND started_at >= ?
             GROUP BY day ORDER BY day
             """.trimIndent(),
             arrayOf(since.toString())
@@ -269,7 +281,7 @@ class Repo(context: Context) {
             """
             SELECT a.tag, COUNT(*), SUM(a.first_ok)
             FROM attempt a JOIN session s ON a.session_id = s.id
-            WHERE s.finished=1 $where
+            WHERE s.finished=1 AND s.mode != 'challenge' $where
             GROUP BY a.tag ORDER BY COUNT(*) DESC
             """.trimIndent(),
             args
@@ -319,9 +331,103 @@ class Repo(context: Context) {
         ).use { c -> return if (c.moveToFirst()) c.getDouble(0) else 0.0 }
     }
 
+    // ------------------------------------------------------------ 成就用的聚合
+
+    fun perfectSessionCount(): Int = singleInt(
+        "SELECT COUNT(*) FROM session WHERE finished=1 AND mode!='challenge' AND total>=5 AND correct_first=total"
+    )
+
+    fun examPerfectCount(): Int = singleInt(
+        "SELECT COUNT(*) FROM session WHERE finished=1 AND mode='exam' AND total>=10 AND correct_first=total"
+    )
+
+    fun challengeWinCount(): Int = singleInt(
+        "SELECT COUNT(*) FROM session WHERE finished=1 AND mode='challenge' AND correct_first*2 > total"
+    )
+
+    /** 全对场次里最快的平均每题用时（毫秒） */
+    fun fastestQuestionMs(): Long? {
+        helper.readableDatabase.rawQuery(
+            """
+            SELECT MIN(duration_ms * 1.0 / total) FROM session
+            WHERE finished=1 AND mode!='challenge' AND total>=5 AND correct_first=total
+            """.trimIndent(), null
+        ).use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) {
+                val v = c.getDouble(0)
+                if (v > 0) return v.toLong()
+            }
+        }
+        return null
+    }
+
+    private fun singleInt(sql: String): Int {
+        helper.readableDatabase.rawQuery(sql, null).use { c ->
+            return if (c.moveToFirst()) c.getInt(0) else 0
+        }
+    }
+
+    // ------------------------------------------------------------ 每日挑战
+
+    fun saveDaily(day: String, stageId: String, total: Int, correct: Int) {
+        val db = helper.writableDatabase
+        val exists = db.rawQuery("SELECT day FROM daily WHERE day=?", arrayOf(day)).use { it.moveToFirst() }
+        if (exists) {
+            // 同一天重挑战：只保留更好的成绩
+            db.execSQL(
+                "UPDATE daily SET total=?, correct=?, stage_id=?, finished_at=? WHERE day=? AND correct < ?",
+                arrayOf<Any>(total, correct, stageId, System.currentTimeMillis(), day, correct)
+            )
+        } else {
+            val cv = ContentValues().apply {
+                put("day", day)
+                put("stage_id", stageId)
+                put("total", total)
+                put("correct", correct)
+                put("finished_at", System.currentTimeMillis())
+            }
+            db.insert("daily", null, cv)
+        }
+    }
+
+    fun dailyRecord(day: String): DailyRecord? {
+        helper.readableDatabase.rawQuery(
+            "SELECT day, stage_id, total, correct FROM daily WHERE day=?", arrayOf(day)
+        ).use { c ->
+            if (c.moveToFirst()) {
+                return DailyRecord(c.getString(0), c.getString(1), c.getInt(2), c.getInt(3))
+            }
+        }
+        return null
+    }
+
+    /** 连续「全对通关」的天数（今天还没通关不算断） */
+    fun dailyStreak(): Int {
+        val fullDays = mutableSetOf<String>()
+        helper.readableDatabase.rawQuery(
+            "SELECT day FROM daily WHERE total>0 AND correct=total ORDER BY day DESC LIMIT 90", null
+        ).use { c ->
+            while (c.moveToNext()) fullDays.add(c.getString(0))
+        }
+        if (fullDays.isEmpty()) return 0
+        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val cal = java.util.Calendar.getInstance()
+        var streak = 0
+        for (i in 0 until 90) {
+            val key = fmt.format(cal.time)
+            if (fullDays.contains(key)) {
+                streak++
+            } else if (i > 0) {
+                break
+            }
+            cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        }
+        return streak
+    }
+
     fun clearAll() {
         val db = helper.writableDatabase
-        listOf("attempt", "session", "wrong_item", "sync_queue").forEach {
+        listOf("attempt", "session", "wrong_item", "daily", "sync_queue").forEach {
             db.execSQL("DELETE FROM $it")
         }
     }

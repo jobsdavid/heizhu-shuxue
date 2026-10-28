@@ -35,16 +35,26 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         private const val ARG_MODE = "mode"
         private const val ARG_COUNT = "count"
         private const val ARG_WRONG = "wrong"
+        private const val ARG_SEED = "seed"
+        private const val ARG_DAILY = "daily"
 
-        fun newInstance(stageId: String, modeId: String, count: Int, wrongOnly: Boolean) =
-            PracticeFragment().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_STAGE, stageId)
-                    putString(ARG_MODE, modeId)
-                    putInt(ARG_COUNT, count)
-                    putBoolean(ARG_WRONG, wrongOnly)
-                }
+        fun newInstance(
+            stageId: String,
+            modeId: String,
+            count: Int,
+            wrongOnly: Boolean,
+            seed: Long = 0L,
+            dailyDay: String? = null
+        ) = PracticeFragment().apply {
+            arguments = Bundle().apply {
+                putString(ARG_STAGE, stageId)
+                putString(ARG_MODE, modeId)
+                putInt(ARG_COUNT, count)
+                putBoolean(ARG_WRONG, wrongOnly)
+                putLong(ARG_SEED, seed)
+                putString(ARG_DAILY, dailyDay)
             }
+        }
     }
 
     private var _b: FragmentPracticeBinding? = null
@@ -55,6 +65,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private lateinit var mode: PlayMode
     private var count = 10
     private var wrongOnly = false
+    private var seed = 0L
+    private var dailyDay: String? = null
 
     private var engine: SessionEngine? = null
     private val input = StringBuilder()
@@ -73,6 +85,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         mode = PlayMode.of(arguments?.getString(ARG_MODE))
         count = arguments?.getInt(ARG_COUNT, 10) ?: 10
         wrongOnly = arguments?.getBoolean(ARG_WRONG) ?: false
+        seed = arguments?.getLong(ARG_SEED, 0L) ?: 0L
+        dailyDay = arguments?.getString(ARG_DAILY)
 
         buildKeypad()
         b.tvStage.text = "${stage.name} · ${mode.label}"
@@ -212,7 +226,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             sessionId = id
             engine = SessionEngine(
                 stage, mode, planned, id, app.repo, pre,
-                QuestionStyle.of(app.settings.questionStyle)
+                QuestionStyle.of(app.settings.questionStyle), seed
             )
             render()
             speakQuestion()
@@ -462,24 +476,33 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         val summary = e.summary(finishedOk)
         app.repo.async({
             val overall = app.repo.overall(stage.id)
+            val totalQuestions = overall.questions + summary.total
+            val totalCorrect = overall.correct + summary.correctFirst
+            val totalAccuracy = if (totalQuestions == 0) 0.0 else totalCorrect * 100.0 / totalQuestions
             val power = Analytics.power(
                 summary.score, summary.avgSeconds, stage.targetSeconds,
-                overall.questions + summary.total, stage.weight
+                totalQuestions, stage.weight
             )
             app.repo.closeSession(
                 sessionId, summary.total, summary.correctFirst, summary.wrong,
                 summary.durationMs, summary.score, power, finishedOk
             )
+            if (finishedOk && dailyDay != null) {
+                app.repo.saveDaily(dailyDay!!, stage.id, summary.total, summary.correctFirst)
+            }
             val unlocked = if (finishedOk) {
-                app.settings.checkUnlock(stage, summary.score, summary.total)
+                app.settings.checkUnlock(stage, totalQuestions, totalAccuracy)
             } else null
-            summary.copy(power = power) to unlocked
-        }) { pair ->
+            val progress = if (finishedOk) {
+                app.settings.unlockProgress(stage, totalQuestions, totalAccuracy)
+            } else null
+            Triple(summary.copy(power = power), unlocked, progress)
+        }) { result ->
             if (!isAdded) return@async
             if (finishedOk) {
-                if (pair.second != null) Sfx.levelUp() else Sfx.finish()
+                if (result.second != null) Sfx.levelUp() else Sfx.finish()
             }
-            (activity as? MainActivity)?.showResult(pair.first, pair.second)
+            (activity as? MainActivity)?.showResult(result.first, result.second, result.third)
         }
     }
 

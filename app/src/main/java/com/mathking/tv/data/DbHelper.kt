@@ -66,7 +66,20 @@ class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_V
                 streak INTEGER NOT NULL DEFAULT 0,
                 last_wrong_at INTEGER NOT NULL,
                 mastered INTEGER NOT NULL DEFAULT 0,
+                tag TEXT NOT NULL DEFAULT '错题',
                 UNIQUE(stage_id, expr_key)
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE daily (
+                day TEXT PRIMARY KEY,
+                stage_id TEXT NOT NULL,
+                total INTEGER NOT NULL,
+                correct INTEGER NOT NULL,
+                finished_at INTEGER NOT NULL
             )
             """.trimIndent()
         )
@@ -85,11 +98,27 @@ class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_V
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // 目前只有 v1；后续版本在此按版本号逐级迁移，避免丢孩子的数据
+        // 逐级迁移，绝不 DROP，避免丢孩子的数据
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE wrong_item ADD COLUMN tag TEXT NOT NULL DEFAULT '错题'")
+        }
+        if (oldVersion < 3) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS daily (
+                    day TEXT PRIMARY KEY,
+                    stage_id TEXT NOT NULL,
+                    total INTEGER NOT NULL,
+                    correct INTEGER NOT NULL,
+                    finished_at INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
     }
 
     companion object {
         const val DB_NAME = "mathking.db"
-        const val DB_VERSION = 1
+        const val DB_VERSION = 3
     }
 }

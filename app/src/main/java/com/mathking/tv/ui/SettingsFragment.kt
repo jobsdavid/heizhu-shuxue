@@ -175,6 +175,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private fun toggleUnlock() {
         if (app.settings.unlockedAll) {
             app.settings.resetUnlockToDefault()
+            // 当前阶段如果不在已解锁范围里，回退到默认阶段，避免停在「锁着」的阶段
+            if (!app.settings.isUnlocked(app.settings.stageId)) {
+                app.settings.stageId = StageCatalog.default.id
+            }
             b.tvTip.text = "已关闭全部解锁，回到按成绩解锁"
         } else {
             app.settings.unlockAll()

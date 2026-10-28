@@ -43,11 +43,12 @@ class WrongBookFragment : Fragment(R.layout.fragment_wrongbook) {
 
     private fun load() {
         val app = App.of(requireContext())
-        app.repo.async({ app.repo.wrongItems(null) }) { items ->
+        app.repo.async({ app.repo.wrongItems(null) to app.repo.masteredCount() }) { pair ->
+            val items = pair.first
             if (!isAdded || _b == null) return@async
             b.list.removeAllViews()
             if (items.isEmpty()) {
-                b.tvWrongSub.text = "0 道待攻克"
+                b.tvWrongSub.text = "0 道待攻克 · 已攻克 ${pair.second} 道"
                 b.tvEmpty.visibility = View.VISIBLE
                 b.scroll.visibility = View.GONE
                 b.btnPractice.visibility = View.GONE
@@ -57,7 +58,7 @@ class WrongBookFragment : Fragment(R.layout.fragment_wrongbook) {
             b.tvEmpty.visibility = View.GONE
             b.scroll.visibility = View.VISIBLE
             b.btnPractice.visibility = View.VISIBLE
-            b.tvWrongSub.text = "${items.size} 道待攻克 · 连续答对 2 次自动毕业"
+            b.tvWrongSub.text = "${items.size} 道待攻克 · 已攻克 ${pair.second} 道 · 连对 2 次自动毕业"
             items.forEach { addRow(it) }
         }
     }

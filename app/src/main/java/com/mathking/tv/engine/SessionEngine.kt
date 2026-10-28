@@ -24,7 +24,8 @@ class SessionEngine(
     private val sessionId: Long,
     private val repo: Repo,
     preGenerated: List<Question>? = null,
-    private val style: QuestionStyle = QuestionStyle.CALC
+    private val style: QuestionStyle = QuestionStyle.CALC,
+    private val seed: Long = 0L
 ) {
 
     val questions: List<Question> = preGenerated ?: generate(planned)
@@ -64,15 +65,16 @@ class SessionEngine(
     )
 
     private fun generate(count: Int): List<Question> {
+        val rnd = if (seed != 0L) Random(seed) else Random.Default
         val out = mutableListOf<Question>()
         val seen = HashSet<String>()
         var guard = 0
         while (out.size < count && guard < count * 50) {
             guard++
-            val q = Generator.make(stage, style, Random.Default)
+            val q = Generator.make(stage, style, rnd)
             if (seen.add(q.text)) out.add(q)
         }
-        while (out.size < count) out.add(Generator.make(stage, style))
+        while (out.size < count) out.add(Generator.make(stage, style, rnd))
         return out
     }
 

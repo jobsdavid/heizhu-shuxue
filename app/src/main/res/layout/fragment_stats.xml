@@ -49,9 +49,25 @@
             android:layout_marginStart="18dp"
             android:layout_weight="1"
             android:gravity="end"
-            android:text="累计 0 题 · 正确率 --% · 平均 -- 秒/题"
+            android:text="累计 0 题 · 正确率 --%"
             android:textColor="@color/text_dim"
-            android:textSize="17sp" />
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/btnAchievements"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:background="@drawable/selector_key"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingTop="7dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="7dp"
+            android:text="🏅 成就墙"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
     </LinearLayout>
 
     <LinearLayout

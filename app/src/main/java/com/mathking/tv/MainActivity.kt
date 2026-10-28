@@ -7,6 +7,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import com.mathking.tv.data.SessionSummary
 import com.mathking.tv.data.StageConfig
+import com.mathking.tv.data.UnlockProgress
 import com.mathking.tv.ui.HomeFragment
 import com.mathking.tv.ui.DigitInput
 import com.mathking.tv.ui.ResultFragment
@@ -16,6 +17,7 @@ class MainActivity : AppCompatActivity() {
     /** 结果页要展示的数据（TV 固定横屏，不做复杂状态恢复） */
     var lastSummary: SessionSummary? = null
     var lastUnlockedStage: StageConfig? = null
+    var lastUnlockProgress: UnlockProgress? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,13 +40,18 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
     }
 
-    fun showResult(summary: SessionSummary, unlocked: StageConfig?) {
+    fun showResult(
+        summary: SessionSummary,
+        unlocked: StageConfig?,
+        progress: UnlockProgress? = null
+    ) {
         // 把练习页从回退栈里摘掉：结果页按返回应该回首页，而不是重开一局
         supportFragmentManager.popBackStackImmediate(
             null, FragmentManager.POP_BACK_STACK_INCLUSIVE
         )
         lastSummary = summary
         lastUnlockedStage = unlocked
+        lastUnlockProgress = progress
         navigate(ResultFragment())
     }
 
