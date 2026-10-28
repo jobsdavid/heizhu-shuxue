@@ -195,12 +195,19 @@ class Repo(context: Context) {
 
     // ------------------------------------------------------------ 统计
 
-    fun overall(stageId: String? = null): Overall {
-        val where = if (stageId == null) "WHERE finished=1" else "WHERE finished=1 AND stage_id=?"
-        val args = if (stageId == null) null else arrayOf(stageId)
+    fun overall(stageId: String? = null, excludeChallenge: Boolean = true): Overall {
+        val conds = mutableListOf("finished=1")
+        val args = mutableListOf<String>()
+        if (stageId != null) {
+            conds.add("stage_id=?")
+            args.add(stageId)
+        }
+        // 挑战是抢时间，正确率天然偏低，混进算力会失真，所以默认排除
+        if (excludeChallenge) conds.add("mode != 'challenge'")
+        val where = "WHERE " + conds.joinToString(" AND ")
         helper.readableDatabase.rawQuery(
             "SELECT COUNT(*), IFNULL(SUM(total),0), IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0) FROM session $where",
-            args
+            args.toTypedArray()
         ).use { c ->
             if (c.moveToFirst()) {
                 return Overall(c.getInt(0), c.getInt(1), c.getInt(2), c.getLong(3))

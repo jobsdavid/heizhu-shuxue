@@ -76,7 +76,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
         val planned = if (app.settings.mode == PlayMode.EXAM) 20 else app.settings.questionCount
-        b.tvStartInfo.text = "${stage.name} · ${app.settings.mode.label} · $planned 题"
+        b.tvStartInfo.text = "${stage.name} · ${app.settings.mode.label}\n$planned 题"
         b.tvSettingsInfo.text = "阶段与声音"
 
         app.repo.async({
