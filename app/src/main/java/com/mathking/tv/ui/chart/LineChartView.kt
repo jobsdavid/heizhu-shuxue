@@ -94,10 +94,12 @@ class LineChartView @JvmOverloads constructor(
         if (last != null) {
             val text = formatValue(last)
             val tw = valuePaint.measureText(text)
-            canvas.drawText(text, w - pad - tw, pad + 26f * scaled, valuePaint)
             val unitText = unit
+            val uw = if (unitText.isEmpty()) 0f else textPaint.measureText(unitText)
+            // 数值靠右，单位紧跟在它右边（之前单位画在数字左边，显示成「% 100」）
+            canvas.drawText(text, w - pad - tw - uw, pad + 26f * scaled, valuePaint)
             if (unitText.isNotEmpty()) {
-                canvas.drawText(unitText, w - pad - tw - 26f * scaled, pad + 26f * scaled, textPaint)
+                canvas.drawText(unitText, w - pad - uw, pad + 26f * scaled, textPaint)
             }
         }
 

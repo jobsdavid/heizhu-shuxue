@@ -90,7 +90,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         dailyDay = arguments?.getString(ARG_DAILY)
 
         buildKeypad()
-        b.tvStage.text = "${stage.name} · ${mode.label}"
+        b.tvStage.text = "${stage.name} · ${if (dailyDay != null) "每日挑战" else mode.label}"
         b.tvTimer.visibility =
             if (mode == PlayMode.TIMED || mode == PlayMode.EXAM) View.VISIBLE else View.GONE
         b.btnRepeat.setOnClickListener { speakQuestion(manual = true) }

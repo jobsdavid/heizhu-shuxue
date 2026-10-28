@@ -91,28 +91,43 @@ object Generator {
 
     /**
      * 填空：把算式里的一个数挖掉，孩子填这个数（小学低年级叫「求括号里的数」）。
-     * 只对整数阶段生效，分数阶段在 make() 里已经被挡掉了。
+     * 题目本体先走正常出题器，保证和该阶段的其他题一样遵守范围 / 进退位规则，
+     * 再把其中一个数换成方框——否则填空题会绕过 s2 的「必须进退位」这类约束。
      */
     private fun fill(stage: StageConfig, rnd: Random): Question {
-        val op = stage.ops[rnd.nextInt(stage.ops.size)]
-        val (a, b, c) = triple(stage, op, rnd)
-        val blankFirst = rnd.nextBoolean()
-        return if (blankFirst) {
+        val base = when (stage.kind) {
+            StageKind.ADD_SUB -> addSub(stage, rnd)
+            StageKind.MUL -> mul(stage, rnd)
+            StageKind.DIV -> div(stage, rnd)
+            StageKind.MUL_DIV -> if (rnd.nextBoolean()) mul(stage, rnd) else div(stage, rnd)
+            StageKind.FOUR_OPS -> fourOps(stage, rnd)
+            else -> addSub(stage, rnd)
+        }
+        val parts = base.text.split(" ")
+        if (parts.size < 3) return base
+        val a = parts[0].toIntOrNull() ?: return base
+        val opSym = parts[1]
+        val b = parts[2].toIntOrNull() ?: return base
+        val c = base.answer
+        val op = stage.ops.firstOrNull { it.symbol == opSym } ?: Op.ADD
+
+        return if (rnd.nextBoolean()) {
             Question(
-                text = "□ ${op.symbol} $b = $c",
+                text = "□ $opSym $b = $c",
                 answer = a,
-                tag = "填空·${op.symbol}",
+                tag = "填空·$opSym",
                 speak = "括号里填几：括号 ${op.speak} ${cn(b)} 等于 ${cn(c)}",
-                hint = if (op == Op.ADD || op == Op.MUL) "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(b)}"
-                else "倒着想：${cn(c)} 加 ${cn(b)}"
+                hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(b)}"
             )
         } else {
             Question(
-                text = "$a ${op.symbol} □ = $c",
+                text = "$a $opSym □ = $c",
                 answer = b,
-                tag = "填空·${op.symbol}",
+                tag = "填空·$opSym",
                 speak = "括号里填几：${cn(a)} ${op.speak} 括号 等于 ${cn(c)}",
-                hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(a)}"
+                hint = if (op == Op.SUB) "倒着想：${cn(a)} 减 ${cn(c)}"
+                else if (op == Op.DIV) "倒着想：${cn(a)} 除以 ${cn(c)}"
+                else "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(a)}"
             )
         }
     }
@@ -155,12 +170,15 @@ object Generator {
     private fun addQ(stage: StageConfig, rnd: Random): Question {
         val max = stage.maxValue
         val min = stage.minValue.coerceAtLeast(1)
-        var a = min
-        var b = min
+        // 50/100 以内这种范围，至少要有一个加数是两位数，否则净出 6+2 这种，练不到重点
+        val aMin = if (max >= 30) maxOf(min, 10) else min
+        val bMin = if (max >= 30 && rnd.nextBoolean()) 10 else min
+        var a = aMin
+        var b = bMin
         var tries = 0
         while (tries++ < 400) {
-            a = rnd.nextInt(min, max)
-            b = rnd.nextInt(min, max - a + 1)
+            a = rnd.nextInt(aMin, max)
+            b = rnd.nextInt(bMin, max - a + 1)
             val carry = (a % 10) + (b % 10) >= 10
             val ok = when (stage.carry) {
                 CarryRule.ANY -> true
@@ -182,11 +200,13 @@ object Generator {
     private fun subQ(stage: StageConfig, rnd: Random): Question {
         val max = stage.maxValue
         val min = stage.minValue.coerceAtLeast(1)
+        // 同理：50 以内/100 以内要出两位数的被减数
+        val lo = if (max >= 30) maxOf(min + 1, 10) else min + 1
         var a = max
         var b = 1
         var tries = 0
         while (tries++ < 400) {
-            a = rnd.nextInt(min + 1, max + 1)
+            a = rnd.nextInt(lo, max + 1)
             b = rnd.nextInt(min, a)
             val borrow = (a % 10) < (b % 10)
             val ok = when (stage.carry) {

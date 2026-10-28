@@ -30,7 +30,7 @@ object StageCatalog {
         StageConfig(
             id = "s2", name = "20 以内加减", ops = listOf(Op.ADD, Op.SUB),
             maxValue = 20, minValue = 1, targetSeconds = 6, weight = 1.2,
-            kind = StageKind.ADD_SUB, carry = CarryRule.ANY,
+            kind = StageKind.ADD_SUB, carry = CarryRule.REQUIRE,
             tip = "进位加、退位减，一年级上册的重点",
             detail = "一年级上册的重点：必须带进位或退位的加减，比如 8 + 7、15 − 9。练的是「凑十法」和「破十法」——把 8 + 7 想成 8 + 2 + 5，把 15 − 9 想成 15 − 5 − 4。"
         ),

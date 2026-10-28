@@ -89,8 +89,6 @@ class SessionEngine(
                 combo++
             } else {
                 combo = 0
-                // 练习模式里第一次没答对，也要进错题本
-                repo.upsertWrong(stage.id, q)
             }
             val rec = AttemptRecord(index, q, value, first, attemptCount, ms)
             records.add(rec)
@@ -99,6 +97,9 @@ class SessionEngine(
             questionDone = true
             SubmitResult(true, false, false, combo, q, isLast)
         } else {
+            // 第一次没答对就记进错题本：一直卡着答不对的题，恰恰是最该复习的。
+            // 之前只在「答错后又答对」时才记，导致卡死的题永远进不了错题本。
+            if (attemptCount == 1) repo.upsertWrong(stage.id, q)
             if (mode == PlayMode.PRACTICE || mode == PlayMode.WRONG) {
                 combo = 0
                 SubmitResult(false, true, timedOut, 0, q, isLast)
