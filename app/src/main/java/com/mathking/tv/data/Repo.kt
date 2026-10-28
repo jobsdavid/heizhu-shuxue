@@ -283,6 +283,28 @@ class Repo(context: Context) {
         return list.reversed()
     }
 
+    /**
+     * 挑战模式的基准：该阶段「正确率 ≥ 80% 且至少 5 题」的场次里，
+     * 平均每题用时最快的一次（毫秒）。没有达标记录就返回 null，挑战模式不解锁。
+     */
+    fun bestPaceMs(stageId: String): Long? {
+        helper.readableDatabase.rawQuery(
+            """
+            SELECT MIN(duration_ms * 1.0 / total)
+            FROM session
+            WHERE finished=1 AND stage_id=? AND total>=5
+              AND correct_first * 1.0 / total >= 0.8
+            """.trimIndent(),
+            arrayOf(stageId)
+        ).use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) {
+                val v = c.getDouble(0)
+                if (v > 0) return v.toLong()
+            }
+        }
+        return null
+    }
+
     fun bestScore(stageId: String): Double {
         helper.readableDatabase.rawQuery(
             "SELECT IFNULL(MAX(score),0) FROM session WHERE finished=1 AND stage_id=?",

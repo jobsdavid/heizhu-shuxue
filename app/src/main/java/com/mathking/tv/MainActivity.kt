@@ -8,7 +8,7 @@ import androidx.fragment.app.FragmentManager
 import com.mathking.tv.data.SessionSummary
 import com.mathking.tv.data.StageConfig
 import com.mathking.tv.ui.HomeFragment
-import com.mathking.tv.ui.PracticeFragment
+import com.mathking.tv.ui.DigitInput
 import com.mathking.tv.ui.ResultFragment
 
 class MainActivity : AppCompatActivity() {
@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             val fragment = supportFragmentManager.findFragmentById(R.id.container)
-            if (fragment is PracticeFragment) {
+            if (fragment is DigitInput) {
                 digitOf(event.keyCode)?.let {
                     fragment.appendDigit(it)
                     return true

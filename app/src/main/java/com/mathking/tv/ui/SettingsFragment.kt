@@ -73,7 +73,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             PlayMode.PRACTICE -> "练习 · 不限时"
             PlayMode.TIMED -> "限时 · 每题倒计时"
             PlayMode.EXAM -> "考试 · 固定 20 题"
-            PlayMode.WRONG -> "练习 · 不限时"
+            else -> "练习 · 不限时"
         }
         b.tvStyle.text = QuestionStyle.of(app.settings.questionStyle).label
         b.tvSpeed.text = when {

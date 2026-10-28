@@ -165,7 +165,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginEnd="18dp"
-            android:layout_weight="1.6"
+            android:layout_weight="1.5"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
@@ -196,7 +196,7 @@
                 android:gravity="center"
                 android:text="50 以内加减 · 练习 · 10 题"
                 android:textColor="@color/accent"
-                android:textSize="19sp" />
+                android:textSize="16sp" />
 
             <TextView
                 android:id="@+id/tvStartHint"
@@ -207,6 +207,45 @@
                 android:text="按 OK 开始"
                 android:textColor="@color/text_dim"
                 android:textSize="16sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/cardChallenge"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="18dp"
+            android:layout_weight="1.1"
+            android:background="@drawable/selector_card"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚔️"
+                android:textSize="44sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="挑战电脑"
+                android:textColor="@color/text"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvChallengeInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="对手 3.2 秒/题"
+                android:textColor="@color/accent"
+                android:textSize="15sp" />
         </LinearLayout>
 
         <LinearLayout

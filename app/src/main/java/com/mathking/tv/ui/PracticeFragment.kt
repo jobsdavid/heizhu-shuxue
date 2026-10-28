@@ -28,7 +28,7 @@ import com.mathking.tv.engine.SessionEngine
 import com.mathking.tv.stats.Analytics
 import com.mathking.tv.util.Ui
 
-class PracticeFragment : Fragment(R.layout.fragment_practice) {
+class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
 
     companion object {
         private const val ARG_STAGE = "stage"
@@ -144,13 +144,13 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
         }
     }
 
-    fun backspace() {
+    override fun backspace() {
         if (finished) return
         if (input.isNotEmpty()) input.deleteCharAt(input.length - 1)
         updateAnswer()
     }
 
-    fun appendDigit(d: String) {
+    override fun appendDigit(d: String) {
         if (finished || input.length >= 3) return
         input.append(d)
         updateAnswer()
@@ -256,6 +256,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
         PlayMode.TIMED -> 1.30f
         PlayMode.EXAM -> 1.10f
         PlayMode.WRONG -> 1.0f
+        PlayMode.CHALLENGE -> 1.1f
     }
 
     // ------------------------------------------------------------ 计时

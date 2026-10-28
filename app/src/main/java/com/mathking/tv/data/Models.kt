@@ -26,7 +26,8 @@ enum class PlayMode(val id: String, val label: String) {
     PRACTICE("practice", "练习"),
     TIMED("timed", "限时"),
     EXAM("exam", "考试"),
-    WRONG("wrongbook", "错题重练");
+    WRONG("wrongbook", "错题重练"),
+    CHALLENGE("challenge", "挑战电脑");
 
     val advancedOnly: Boolean get() = this == TIMED || this == EXAM
 
