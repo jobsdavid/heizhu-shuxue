@@ -1,15 +1,18 @@
 package com.mathking.tv.ui
 
+import android.app.Dialog
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.View
 import android.widget.GridLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
@@ -76,7 +79,15 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
         b.tvTimer.visibility =
             if (mode == PlayMode.TIMED || mode == PlayMode.EXAM) View.VISIBLE else View.GONE
         b.btnRepeat.setOnClickListener { speakQuestion() }
-        b.btnQuit.setOnClickListener { quit() }
+        b.btnQuit.setOnClickListener { showQuitDialog() }
+        requireActivity().onBackPressedDispatcher.addCallback(
+            viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (!finished) showQuitDialog()
+                }
+            }
+        )
         b.tvKeyHint.text = when (mode) {
             PlayMode.EXAM -> "考试模式：答完统一判卷"
             PlayMode.TIMED -> "限时模式：答错或超时会直接下一题"
@@ -108,6 +119,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
                 isClickable = true
                 setOnClickListener { onKey(label) }
                 isSoundEffectsEnabled = false
+                if (i / 3 == 3) nextFocusDownId = R.id.btnRepeat
             }
             val lp = GridLayout.LayoutParams(
                 GridLayout.spec(i / 3, 1f),
@@ -142,6 +154,26 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
         if (finished || input.length >= 3) return
         input.append(d)
         updateAnswer()
+        autoCheck()
+    }
+
+    /**
+     * 少按一次确认键：
+     * - 输入的数字正好等于答案 → 直接算作答对
+     * - 位数已经超过答案位数 → 1.5 秒后按错误提交（期间按 ⌫ 还能改）
+     */
+    private fun autoCheck() {
+        val q = engine?.question ?: return
+        val text = input.toString()
+        val value = text.toIntOrNull() ?: return
+        when {
+            value == q.answer -> handler.postDelayed({
+                if (!finished && input.toString() == text) submitAnswer()
+            }, 160)
+            text.length > q.answer.toString().length -> handler.postDelayed({
+                if (!finished && input.toString() == text) submitAnswer()
+            }, 1500)
+        }
     }
 
     private fun updateAnswer() {
@@ -205,6 +237,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
         b.tvHint.setTextColor(Ui.color(requireContext(), if (q.findError) R.color.accent else R.color.text_dim))
         input.clear()
         updateAnswer()
+        b.keypad.getChildAt(4)?.requestFocus()   // 每题都把焦点放回 5，少按几下方向键
         startTimerForQuestion()
     }
 
@@ -357,6 +390,46 @@ class PracticeFragment : Fragment(R.layout.fragment_practice) {
     }
 
     // ------------------------------------------------------------ 收尾
+
+    private var quitDialog: Dialog? = null
+
+    private fun showQuitDialog() {
+        if (quitDialog?.isShowing == true || finished) return
+        stopTimer()
+        val done = engine?.records?.size ?: 0
+        val dialog = Dialog(requireContext(), R.style.Theme_MathKing_Dialog)
+        dialog.setContentView(R.layout.dialog_quit)
+        dialog.setCancelable(true)
+        dialog.findViewById<android.widget.TextView>(R.id.tvQuitHint)?.text = if (done == 0) {
+            "这一轮还没做题，退出不会留下记录"
+        } else {
+            "已经做了 $done 题，退出后这一轮不计入成长曲线"
+        }
+        dialog.findViewById<View>(R.id.btnKeep)?.setOnClickListener { dialog.dismiss() }
+        dialog.findViewById<View>(R.id.btnQuit)?.setOnClickListener {
+            dialog.dismiss()
+            quit()
+        }
+        dialog.setOnDismissListener {
+            quitDialog = null
+            if (!finished && _b != null) resumeTimer()
+        }
+        dialog.setOnShowListener {
+            dialog.findViewById<View>(R.id.btnKeep)?.requestFocus()
+            dialog.window?.setLayout(
+                Ui.dp(requireContext(), 560f),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        quitDialog = dialog
+        app.speaker.stop()
+        dialog.show()
+    }
+
+    private fun resumeTimer() {
+        if (mode == PlayMode.TIMED && remaining > 0) tick()
+        if (mode == PlayMode.EXAM) tick()
+    }
 
     private fun quit() {
         savePartial()

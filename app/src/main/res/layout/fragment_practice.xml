@@ -136,6 +136,8 @@
         <!-- 数字键盘 -->
         <GridLayout
             android:id="@+id/keypad"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:layout_width="360dp"
             android:layout_height="match_parent"
             android:columnCount="3"

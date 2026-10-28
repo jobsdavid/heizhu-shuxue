@@ -77,9 +77,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         }
         b.tvStyle.text = QuestionStyle.of(app.settings.questionStyle).label
         b.tvSpeed.text = when {
-            app.settings.speechScale < 0.95f -> "慢"
-            app.settings.speechScale > 1.05f -> "快"
-            else -> "正常"
+            app.settings.speechScale < 1.05f -> "慢"
+            app.settings.speechScale < 1.25f -> "正常"
+            app.settings.speechScale < 1.45f -> "快"
+            else -> "超快"
         }
         b.tvSound.text = if (app.settings.soundOn) "开" else "关"
         b.tvSpeak.text = if (app.settings.speakOn) "开" else "关"
@@ -138,7 +139,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun changeSpeed(step: Int) {
-        val options = listOf(0.85f, 1.0f, 1.15f)
+        val options = listOf(0.95f, 1.15f, 1.35f, 1.6f)
         val cur = options.indexOfFirst { kotlin.math.abs(it - app.settings.speechScale) < 0.01f }
             .let { if (it < 0) 1 else it }
         val next = ((cur + step) % options.size + options.size) % options.size
@@ -147,7 +148,8 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         b.tvTip.text = "试听：" + when (next) {
             0 -> "慢速读题"
             1 -> "正常语速"
-            else -> "快速读题（限时模式会更快）"
+            2 -> "快速读题"
+            else -> "超快（限时模式还会再快一点）"
         }
         app.speaker.speak("三十八 加 九 等于几", options[next] * 1.0f)
     }

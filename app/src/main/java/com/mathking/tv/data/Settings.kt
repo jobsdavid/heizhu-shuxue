@@ -27,9 +27,9 @@ class Settings(context: Context) {
         get() = sp.getString("question_style", QuestionStyle.MIX.id) ?: QuestionStyle.MIX.id
         set(value) = sp.edit().putString("question_style", value).apply()
 
-    /** 读题语速倍率：0.85 慢 / 1.0 正常 / 1.15 快 */
+    /** 读题语速倍率：0.95 慢 / 1.15 正常（原来「快」的手感）/ 1.35 快 / 1.6 超快 */
     var speechScale: Float
-        get() = sp.getFloat("speech_scale", 1.0f)
+        get() = sp.getFloat("speech_scale", 1.15f)
         set(value) = sp.edit().putFloat("speech_scale", value).apply()
 
     var soundOn: Boolean

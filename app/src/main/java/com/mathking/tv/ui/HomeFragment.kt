@@ -8,6 +8,7 @@ import com.mathking.tv.MainActivity
 import com.mathking.tv.R
 import com.mathking.tv.data.DailyPoint
 import com.mathking.tv.data.Overall
+import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.data.TodaySummary
 import com.mathking.tv.databinding.FragmentHomeBinding
@@ -57,8 +58,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun refresh() {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
-        b.tvStartInfo.text =
-            "${stage.name} · ${app.settings.mode.label} · ${app.settings.questionCount} 题"
+        val planned = if (app.settings.mode == PlayMode.EXAM) 20 else app.settings.questionCount
+        b.tvStartInfo.text = "${stage.name} · ${app.settings.mode.label} · $planned 题"
         b.tvSettingsInfo.text = "阶段与声音"
 
         app.repo.async({

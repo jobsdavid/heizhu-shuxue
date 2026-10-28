@@ -80,12 +80,6 @@ class MainActivity : AppCompatActivity() {
         else -> null
     }
 
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        if (supportFragmentManager.backStackEntryCount > 0) {
-            supportFragmentManager.popBackStack()
-        } else {
-            super.onBackPressed()
-        }
-    }
+    // 返回键交给 OnBackPressedDispatcher：练习页会先拦截并弹确认框，
+    // 其余页面由 FragmentManager 默认回退栈处理。
 }

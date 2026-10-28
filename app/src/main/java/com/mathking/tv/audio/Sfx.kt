@@ -58,7 +58,7 @@ object Sfx {
                             i > n - edge -> (n - i).toDouble() / edge
                             else -> 1.0
                         }
-                        val v = sin(2 * PI * freq * i / RATE) * 0.32 * env
+                        val v = sin(2 * PI * freq * i / RATE) * 0.45 * env
                         buf[pos + i] = (v * Short.MAX_VALUE).toInt().toShort()
                     }
                     pos += n
