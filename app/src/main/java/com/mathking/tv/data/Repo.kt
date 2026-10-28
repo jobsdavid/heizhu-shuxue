@@ -293,26 +293,31 @@ class Repo(context: Context) {
 
     
     /**
-     * 挑战模式的基准：该阶段「全对且至少 5 题、非挑战模式」的场次里，
-     * 平均每题用时最快的一次（毫秒）。必须全对才算达标，没有就不解锁挑战。
+     * 挑战模式基准：最近 5 场「全对、≥5 题、非挑战」场次的加权平均每题用时。
+     * 不足 5 场返回 null —— 也就是必须攒够 5 次满分才能挑战。
+     * 用多场平均而不是单场最快，避免某一局抽到简单题把电脑拉得过强。
      */
-    fun bestPaceMs(stageId: String): Long? {
+    fun challengeBase(stageId: String): Pair<Long?, Int> {
+        var totalMs = 0L
+        var totalQ = 0
+        var rounds = 0
         helper.readableDatabase.rawQuery(
             """
-            SELECT MIN(duration_ms * 1.0 / total)
-            FROM session
+            SELECT duration_ms, total FROM session
             WHERE finished=1 AND stage_id=? AND total>=5
-              AND correct_first = total
-              AND mode != 'challenge'
+              AND correct_first = total AND mode != 'challenge'
+            ORDER BY started_at DESC LIMIT ?
             """.trimIndent(),
-            arrayOf(stageId)
+            arrayOf(stageId, CHALLENGE_FULL_ROUNDS.toString())
         ).use { c ->
-            if (c.moveToFirst() && !c.isNull(0)) {
-                val v = c.getDouble(0)
-                if (v > 0) return v.toLong()
+            while (c.moveToNext()) {
+                totalMs += c.getLong(0)
+                totalQ += c.getInt(1)
+                rounds++
             }
         }
-        return null
+        if (rounds < CHALLENGE_FULL_ROUNDS || totalQ <= 0) return null to rounds
+        return (totalMs / totalQ) to rounds
     }
 
     
@@ -408,6 +413,11 @@ class Repo(context: Context) {
             cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
         }
         return streak
+    }
+
+    companion object {
+        /** 挑战模式解锁需要的满分场次数 */
+        const val CHALLENGE_FULL_ROUNDS = 5
     }
 
     fun clearAll() {

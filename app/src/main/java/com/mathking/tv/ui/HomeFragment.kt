@@ -9,6 +9,7 @@ import com.mathking.tv.R
 import com.mathking.tv.data.DailyPoint
 import com.mathking.tv.data.DailyRecord
 import com.mathking.tv.data.Overall
+import com.mathking.tv.data.Repo
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.data.TodaySummary
@@ -27,6 +28,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
     /** 有达标战绩才有值：电脑每题用时（毫秒） */
     private var challengePace: Long? = null
+    private var challengeRounds: Int = 0
 
     private var todayKey: String = ""
     private var todayDaily: DailyRecord? = null
@@ -36,7 +38,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val overall: Overall,
         val wrong: Int,
         val days: List<DailyPoint>,
-        val bestPaceMs: Long?,
+        val challengePaceMs: Long?,
+        val fullRounds: Int,
         val daily: DailyRecord?,
         val dailyStreak: Int,
         val stageOverall: Overall
@@ -77,7 +80,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             if (pace == null) {
                 android.widget.Toast.makeText(
                     requireContext(),
-                    "先在「${StageCatalog.byId(s.stageId).name}」做一轮全对（至少 5 题），才能挑战电脑",
+                    "还需要 ${Repo.CHALLENGE_FULL_ROUNDS - challengeRounds} 场满分（每场至少 5 题全对）才能挑战电脑",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
             } else {
@@ -110,11 +113,14 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         app.repo.async({
+            val stageOverall = app.repo.overall(stage.id)
+            val base = app.repo.challengeBase(stage.id)
             HomeData(
                 app.repo.today(), app.repo.overall(), app.repo.wrongCount(),
-                app.repo.dailyStats(30), app.repo.bestPaceMs(stage.id),
+                app.repo.dailyStats(30),
+                base.first, base.second,
                 app.repo.dailyRecord(todayKey), app.repo.dailyStreak(),
-                app.repo.overall(stage.id)
+                stageOverall
             )
         }) { data ->
             if (!isAdded || _b == null) return@async
@@ -147,10 +153,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             b.tvDailyAction.text = if (data.daily?.full == true) "明天再来" else "去挑战 ›"
 
             val minMs = stage.targetSeconds * 500L
-            challengePace = data.bestPaceMs?.let { (it * 0.8).toLong().coerceIn(minMs, 20000L) }
+            challengeRounds = data.fullRounds
+            challengePace = data.challengePaceMs?.let { (it * 0.8).toLong().coerceIn(minMs, 20000L) }
             b.tvChallengeInfo.text = challengePace?.let {
                 "对手 ${String.format("%.1f", it / 1000.0)} 秒/题"
-            } ?: "全对一轮才解锁"
+            } ?: "还差 ${Repo.CHALLENGE_FULL_ROUNDS - data.fullRounds} 场满分"
             b.tvChallengeInfo.setTextColor(
                 Ui.color(requireContext(), if (challengePace == null) R.color.text_dim else R.color.accent)
             )

@@ -23,6 +23,7 @@ import com.mathking.tv.data.AttemptRecord
 import com.mathking.tv.data.Generator
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.Question
+import com.mathking.tv.data.Repo
 import com.mathking.tv.data.QuestionStyle
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.data.StageConfig
@@ -107,13 +108,15 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
     // ------------------------------------------------------------ 启动
 
     private fun loadBaseline() {
-        app.repo.async({ app.repo.bestPaceMs(stage.id) }) { best ->
+        app.repo.async({ app.repo.challengeBase(stage.id) }) { base ->
+            val pace = base.first
+            val rounds = base.second
             if (!isAdded || _b == null) return@async
-            if (best == null) {
-                b.tvPace.text = "还没有达标战绩"
+            if (pace == null) {
+                b.tvPace.text = "还差 ${Repo.CHALLENGE_FULL_ROUNDS - rounds} 场满分"
                 b.tvQuestion.text = "挑战未解锁"
                 b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
-                b.tvHint.text = "先在「${stage.name}」做一轮全对（至少 5 题），就能解锁挑战"
+                b.tvHint.text = "在「${stage.name}」做满 ${Repo.CHALLENGE_FULL_ROUNDS} 场全对（每场至少 5 题）就能解锁"
                 b.tvCountdown.text = ""
                 b.progressComputer.visibility = View.GONE
                 b.tvAnswer.visibility = View.GONE
@@ -122,7 +125,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             }
             // 下限按阶段目标秒数的一半：孩子快到极限时，电脑不至于变成「物理上不可能」
             val minMs = stage.targetSeconds * 500L
-            baselineMs = (best * 0.8).toLong().coerceIn(minMs, 20000L)
+            baselineMs = (pace * 0.8).toLong().coerceIn(minMs, 20000L)
             b.tvPace.text = "电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题"
             buildQuestions()
             openSession()
