@@ -1,0 +1,143 @@
+package com.mathking.tv.data
+
+/** 四则运算 */
+enum class Op(val symbol: String, val speak: String) {
+    ADD("+", "加"),
+    SUB("−", "减"),
+    MUL("×", "乘"),
+    DIV("÷", "除以")
+}
+
+/** 学习阶段 */
+data class StageConfig(
+    val id: String,
+    val name: String,
+    val ops: List<Op>,
+    val maxValue: Int,
+    val targetSeconds: Int,
+    val weight: Double,
+    val fraction: Boolean = false,
+    val tip: String = "",
+    val available: Boolean = true
+)
+
+/** 玩法 */
+enum class PlayMode(val id: String, val label: String) {
+    PRACTICE("practice", "练习"),
+    TIMED("timed", "限时"),
+    EXAM("exam", "考试"),
+    WRONG("wrongbook", "错题重练");
+
+    val advancedOnly: Boolean get() = this == TIMED || this == EXAM
+
+    companion object {
+        fun of(id: String?): PlayMode = entries.firstOrNull { it.id == id } ?: PRACTICE
+    }
+}
+
+/** 一道题 */
+data class Question(
+    val text: String,
+    val answer: Int,
+    val tag: String,
+    val answerText: String = answer.toString(),
+    val speak: String = "",
+    val hint: String = "",
+    /** true = 找错题：题面是一个算错的式子，要填正确答案 */
+    val findError: Boolean = false
+)
+
+/** 题型：正常计算 / 计算+找错 / 只找错 */
+enum class QuestionStyle(val id: String, val label: String) {
+    CALC("calc", "只做计算"),
+    MIX("mix", "计算 + 找错"),
+    FIND("find", "只找错题");
+
+    companion object {
+        fun of(id: String?): QuestionStyle = entries.firstOrNull { it.id == id } ?: MIX
+    }
+}
+
+/** 一道题的作答记录 */
+data class AttemptRecord(
+    val index: Int,
+    val question: Question,
+    val userAnswer: Int?,
+    val firstOk: Boolean,
+    val attempts: Int,
+    val ms: Long,
+    val timedOut: Boolean = false
+)
+
+/** 一局结束后的汇总 */
+data class SessionSummary(
+    val sessionId: Long,
+    val stage: StageConfig,
+    val mode: PlayMode,
+    val total: Int,
+    val correctFirst: Int,
+    val wrong: Int,
+    val durationMs: Long,
+    val score: Double,
+    val attempts: List<AttemptRecord>,
+    val power: Double,
+    val finished: Boolean
+) {
+    val accuracy: Double get() = if (total == 0) 0.0 else correctFirst * 100.0 / total
+    val avgSeconds: Double get() = if (total == 0) 0.0 else durationMs / 1000.0 / total
+    val stars: Int
+        get() = when {
+            accuracy >= 95 -> 3
+            accuracy >= 80 -> 2
+            accuracy >= 60 -> 1
+            else -> 0
+        }
+}
+
+/** 错题本条目 */
+data class WrongEntry(
+    val id: Long,
+    val stageId: String,
+    val expr: String,
+    val answer: String,
+    val wrongCount: Int,
+    val streak: Int,
+    val mastered: Boolean
+)
+
+/** 每日统计点 */
+data class DailyPoint(
+    val day: String,
+    val total: Int,
+    val correct: Int,
+    val msTotal: Long
+) {
+    val accuracy: Double get() = if (total == 0) 0.0 else correct * 100.0 / total
+    val avgSeconds: Double get() = if (total == 0) 0.0 else msTotal / 1000.0 / total
+}
+
+/** 知识点统计 */
+data class TagStat(val tag: String, val total: Int, val correct: Int) {
+    val accuracy: Double get() = if (total == 0) 0.0 else correct * 100.0 / total
+}
+
+/** 首页今日概览 */
+data class TodaySummary(
+    val sessions: Int,
+    val questions: Int,
+    val correct: Int,
+    val msTotal: Long
+) {
+    val accuracy: Double get() = if (questions == 0) 0.0 else correct * 100.0 / questions
+}
+
+/** 某个范围内的整体表现（用于首页、统计页顶部、能力分） */
+data class Overall(
+    val sessions: Int = 0,
+    val questions: Int = 0,
+    val correct: Int = 0,
+    val msTotal: Long = 0
+) {
+    val accuracy: Double get() = if (questions == 0) 0.0 else correct * 100.0 / questions
+    val avgSeconds: Double get() = if (questions == 0) 0.0 else msTotal / 1000.0 / questions
+}
