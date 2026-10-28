@@ -10,16 +10,15 @@ object Ui {
         (value * context.resources.displayMetrics.density + 0.5f).toInt()
 
     /** 给一组 View 加焦点放大效果，电视上看得出来选中了哪个 */
-    fun focusZoom(vararg views: View, scale: Float = 1.07f) {
+    fun focusZoom(vararg views: View, scale: Float = 1.05f) {
         views.forEach { v ->
             v.setOnFocusChangeListener { view, hasFocus ->
+                // 只做轻微放大：不要 elevation，阴影层会让放大后的边框被父容器裁掉
                 view.animate()
                     .scaleX(if (hasFocus) scale else 1f)
                     .scaleY(if (hasFocus) scale else 1f)
                     .setDuration(120)
                     .start()
-                // 抬升一点，电视上焦点框阴影更明显（API 21+）
-                view.elevation = if (hasFocus) 16f * view.resources.displayMetrics.density else 0f
             }
         }
     }
