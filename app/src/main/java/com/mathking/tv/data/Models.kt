@@ -40,6 +40,8 @@ data class StageConfig(
     /** 分数阶段的分母上限（kind 为分数时生效） */
     val maxDen: Int = 10,
     val tip: String = "",
+    /** 阶段详情（家长点开看的长说明） */
+    val detail: String = "",
     val available: Boolean = true
 ) {
     val fraction: Boolean get() = kind == StageKind.FRACTION_SAME || kind == StageKind.FRACTION_DIFF

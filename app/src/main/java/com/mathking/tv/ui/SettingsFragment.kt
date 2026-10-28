@@ -30,6 +30,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
         bind(b.rowProfile) { ProfileDialog(requireActivity(), onChanged = { refresh() }).show() }
         bind(b.rowStage) { changeStage(it) }
+        // 点击进「学习阶段」地图：能看到 s1~s12 全貌和解锁条件；左右键仍是快速切换
+        b.rowStage.setOnClickListener {
+            (activity as? com.mathking.tv.MainActivity)?.navigate(StageMapFragment())
+        }
         bind(b.rowCount) { changeCount(it) }
         bind(b.rowMode) { changeMode(it) }
         bind(b.rowStyle) { changeStyle(it) }
@@ -42,7 +46,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         // 焦点走到哪一行就说哪一行的说明，否则会一直挂着上一次操作的提示
         listOf(
             b.rowProfile to "点开可以改名字和头像",
-            b.rowStage to "左右切换学习阶段，按成绩一步步解锁",
+            b.rowStage to "按 OK 打开阶段地图，左右键快速切换",
             b.rowCount to "每轮出几道题（考试固定 20 题）",
             b.rowMode to "练习卡用哪种方式：不限时 / 限时",
             b.rowStyle to "出什么题：计算 / 找错 / 填空 / 混着来",
