@@ -62,15 +62,17 @@ app/src/main/java/com/mathking/tv/
 ├── MainActivity.kt        单 Activity + Fragment 导航 + 遥控器数字键转发
 ├── data/                  数据层
 │   ├── Models.kt          数据模型与枚举
-│   ├── StageCatalog.kt    12 个学习阶段（可扩展）
+│   ├── StageCatalog.kt    阶段定义（s1~s9 可用，s10 分数进阶未开放）
 │   ├── Generator.kt       出题（含找错题）与朗读文本
-│   ├── DbHelper.kt        SQLite 建表与逐级迁移
+│   ├── DbHelper.kt        SQLite 建表与逐级迁移（当前 v3）
 │   ├── Repo.kt            所有查询与写入
-│   └── Settings.kt        SharedPreferences（阶段/题数/模式/语速/解锁）
+│   ├── Settings.kt        SharedPreferences（阶段/题数/模式/语速/解锁/名字头像）
+│   └── ProfilePresets.kt  头像与预设昵称（电视和手机网页共用）
 ├── engine/SessionEngine.kt 一局的答题状态机（三种模式的差异都收在这里）
 ├── audio/                 语音包（PCM 拼接）与音效（正弦波合成）
+├── net/                   手机扫码用的局域网表单服务（手写 HTTP）
 ├── stats/                 算力公式、段位、成就判定
-├── ui/                    首页/练习/挑战/结果/错题本/统计/设置/成就
+├── ui/                    首页/练习/挑战/结果/错题本/统计/设置/成就/我的资料
 └── util/                  dp、焦点动画、格式化
 ```
 
