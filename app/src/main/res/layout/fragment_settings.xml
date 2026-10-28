@@ -89,7 +89,7 @@
 
                 <TextView
                     style="@style/SettingLabel"
-                    android:text="默认模式" />
+                    android:text="练习方式" />
 
                 <TextView
                     android:id="@+id/tvMode"

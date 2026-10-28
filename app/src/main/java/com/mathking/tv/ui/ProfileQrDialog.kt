@@ -40,13 +40,17 @@ class ProfileQrDialog(
             tvStatus.text = "电视没连上局域网，先连 WiFi 再来"
         } else {
             val srv = LocalWebServer(
+                context = activity,
                 currentName = { app.settings.userName },
                 currentAvatar = { app.settings.avatar },
-                onSaved = { name, avatar ->
+                onSaved = { name, avatar, photo ->
                     app.settings.avatar = avatar
                     if (name.isNotBlank()) app.settings.userName = name
+                    app.settings.avatarImage = photo?.name.orEmpty()
                     activity.runOnUiThread {
-                        tvStatus.text = "已保存：$avatar ${name.ifBlank { "小朋友" }}"
+                        tvStatus.text = "已收到：$avatar ${name.ifBlank { "小朋友" }}"
+                        // 手机确认后电视直接关掉全部资料页，回首页展示最终结果
+                        dialog.dismiss()
                         onSaved()
                     }
                 }

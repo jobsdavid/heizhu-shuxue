@@ -44,15 +44,9 @@ class ProfileDialog(
         buildAvatars()
         buildNames()
 
-        dialog.findViewById<View>(R.id.btnCustomName)?.setOnClickListener { showNameInput(dialog) }
         dialog.findViewById<View>(R.id.btnQr)?.setOnClickListener {
-            ProfileQrDialog(activity) {
-                avatar = app.settings.avatar
-                name = app.settings.userName
-                refreshAvatarSelection()
-                refreshNameSelection()
-                refreshPreview()
-            }.show()
+            // 手机提交成功后，电视这边直接关掉资料页，回首页看结果
+            ProfileQrDialog(activity, onSaved = { dialog.dismiss() }).show()
         }
         dialog.findViewById<View>(R.id.btnDone)?.setOnClickListener { dialog.dismiss() }
         dialog.setOnDismissListener { onChanged() }
@@ -148,69 +142,8 @@ class ProfileDialog(
     }
 
     private fun refreshPreview() {
-        preview?.text = "$avatar ${name.ifBlank { "小朋友" }}"
-    }
-
-    // ------------------------------------------------------------ 自定义名字
-
-    private fun showNameInput(parent: Dialog) {
-        val dialog = Dialog(activity, R.style.Theme_MathKing_Dialog)
-        dialog.setContentView(R.layout.dialog_name)
-        dialog.setCancelable(true)
-
-        val input = dialog.findViewById<TextView>(R.id.tvNameInput)!!
-        val grid = dialog.findViewById<GridLayout>(R.id.letterGrid)!!
-        // 预设昵称是中文，字母键盘编辑不了，所以从空开始；已有英文名则接着改
-        var buffer = name.filter { it in 'A'..'Z' || it in 'a'..'z' || it.isDigit() || it == ' ' }
-
-        fun refresh() {
-            input.text = if (buffer.isEmpty()) "?" else buffer
-        }
-        refresh()
-
-        val keys = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toList() + listOf("␣", "⌫", "✓")
-        keys.forEachIndexed { i, key ->
-            val label = when (key) {
-                "␣" -> "空格"
-                else -> key.toString()
-            }
-            val tv = TextView(activity).apply {
-                text = label
-                gravity = Gravity.CENTER
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, if (label.length > 1) 13f else 18f)
-                setTextColor(ContextCompat.getColor(activity, R.color.text))
-                isFocusable = true
-                isClickable = true
-                isSoundEffectsEnabled = false
-                background = ContextCompat.getDrawable(activity, R.drawable.selector_key)
-                setOnClickListener {
-                    when (key) {
-                        "⌫" -> if (buffer.isNotEmpty()) buffer = buffer.dropLast(1)
-                        "✓" -> {
-                            name = buffer.trim().split(" ").joinToString(" ") { w ->
-                                w.lowercase().replaceFirstChar { c -> c.uppercase() }
-                            }
-                            app.settings.userName = name
-                            refreshNameSelection()
-                            refreshPreview()
-                            dialog.dismiss()
-                            return@setOnClickListener
-                        }
-                        "␣" -> if (buffer.length < 8) buffer += " "
-                        else -> if (buffer.length < 8) buffer += key
-                    }
-                    refresh()
-                }
-            }
-            grid.addView(tv, cellParams(i, 6, 90f, 40f))
-        }
-
-        dialog.findViewById<View>(R.id.btnCancelName)?.setOnClickListener { dialog.dismiss() }
-        dialog.setOnShowListener {
-            dialog.window?.setLayout(dp(600f), ViewGroup.LayoutParams.WRAP_CONTENT)
-            grid.getChildAt(0)?.requestFocus()
-        }
-        dialog.show()
+        val mark = if (app.settings.avatarImage.isNotBlank()) "📷" else avatar
+        preview?.text = "$mark ${name.ifBlank { "小朋友" }}"
     }
 
     private fun cellParams(

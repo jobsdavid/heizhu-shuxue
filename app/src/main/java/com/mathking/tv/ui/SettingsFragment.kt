@@ -72,9 +72,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         b.tvStage.text = stage.name
         b.tvCount.text = "${app.settings.questionCount} 题"
         b.tvMode.text = when (app.settings.mode) {
-            PlayMode.PRACTICE -> "练习 · 不限时"
-            PlayMode.TIMED -> "限时 · 每题倒计时"
-            PlayMode.EXAM -> "考试 · 固定 20 题"
+            PlayMode.TIMED -> "练习 · 限时"
             else -> "练习 · 不限时"
         }
         b.tvStyle.text = QuestionStyle.of(app.settings.questionStyle).label
@@ -116,14 +114,14 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun changeMode(step: Int) {
-        val options = listOf(PlayMode.PRACTICE, PlayMode.TIMED, PlayMode.EXAM)
+        // 考试在首页有独立入口，这里只管「练习」的形态
+        val options = listOf(PlayMode.PRACTICE, PlayMode.TIMED)
         val cur = options.indexOf(app.settings.mode).let { if (it < 0) 0 else it }
         val next = ((cur + step) % options.size + options.size) % options.size
         app.settings.mode = options[next]
         refresh()
         b.tvTip.text = when (options[next]) {
-            PlayMode.TIMED -> "限时模式：每题倒计时，答错直接下一题"
-            PlayMode.EXAM -> "考试模式：20 题，答完统一判卷"
+            PlayMode.TIMED -> "练习 · 限时：每题倒计时，答错直接下一题"
             else -> "练习模式：答对才进入下一题"
         }
     }

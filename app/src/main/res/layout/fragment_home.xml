@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_page"
-    android:orientation="vertical"
     android:clipChildren="false"
     android:clipToPadding="false"
+    android:orientation="vertical"
     android:paddingStart="40dp"
-    android:paddingTop="28dp"
+    android:paddingTop="24dp"
     android:paddingEnd="40dp"
-    android:paddingBottom="20dp">
+    android:paddingBottom="16dp">
 
-    <!-- 顶栏：标题 + 段位 -->
+    <!-- 顶栏：标题 + 资料 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -30,17 +30,17 @@
                 android:letterSpacing="0.04"
                 android:text="黑猪数学"
                 android:textColor="@color/accent"
-                android:textSize="46sp"
+                android:textSize="42sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvSubtitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="2dp"
                 android:text="今天也来练几道题吧"
                 android:textColor="@color/text_dim"
-                android:textSize="17sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -52,40 +52,53 @@
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="18dp"
-            android:paddingTop="10dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="10dp">
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="8dp">
 
-            <TextView
-                android:id="@+id/tvRankBadge"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🐣"
-                android:textSize="32sp" />
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp">
+
+                <TextView
+                    android:id="@+id/tvRankBadge"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:gravity="center"
+                    android:text="🐷"
+                    android:textSize="28sp" />
+
+                <ImageView
+                    android:id="@+id/imgAvatar"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone" />
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="10dp"
                 android:orientation="vertical">
 
                 <TextView
                     android:id="@+id/tvRankName"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="数学小学徒"
+                    android:text="小朋友"
                     android:textColor="@color/text"
-                    android:textSize="22sp"
+                    android:textSize="18sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvPower"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="能力分 0 / 1000"
+                    android:text="数学小学徒 · 算力 0"
                     android:textColor="@color/text_dim"
-                    android:textSize="16sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
@@ -94,14 +107,14 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:background="@drawable/bg_card"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="24dp"
-        android:paddingTop="12dp"
-        android:paddingEnd="24dp"
-        android:paddingBottom="12dp">
+        android:paddingStart="22dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tvTodayLabel"
@@ -109,17 +122,17 @@
             android:layout_height="wrap_content"
             android:text="今天"
             android:textColor="@color/text_dim"
-            android:textSize="17sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tvTodayQuestions"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
+            android:layout_marginStart="16dp"
             android:layout_weight="1"
             android:text="0 题"
             android:textColor="@color/text"
-            android:textSize="22sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <TextView
@@ -129,7 +142,7 @@
             android:layout_weight="1"
             android:text="正确率 --"
             android:textColor="@color/green"
-            android:textSize="22sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <TextView
@@ -139,7 +152,7 @@
             android:layout_weight="1"
             android:text="用时 --"
             android:textColor="@color/blue"
-            android:textSize="22sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <TextView
@@ -148,50 +161,49 @@
             android:layout_height="wrap_content"
             android:text="连续 0 天"
             android:textColor="@color/accent"
-            android:textSize="19sp" />
+            android:textSize="15sp" />
     </LinearLayout>
-
 
     <!-- 每日挑战 -->
     <LinearLayout
         android:id="@+id/cardDaily"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
+        android:layout_marginTop="8dp"
         android:background="@drawable/selector_card"
         android:clickable="true"
         android:focusable="true"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="20dp"
-        android:paddingTop="8dp"
+        android:paddingTop="6dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="8dp">
+        android:paddingBottom="6dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="⚡"
-            android:textSize="24sp" />
+            android:textSize="22sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
+            android:layout_marginStart="8dp"
             android:text="每日挑战"
             android:textColor="@color/accent"
-            android:textSize="19sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvDailyInfo"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
+            android:layout_marginStart="14dp"
             android:layout_weight="1"
             android:text="10 题全对点亮今天"
             android:textColor="@color/text_dim"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
 
         <TextView
             android:id="@+id/tvDailyAction"
@@ -199,14 +211,14 @@
             android:layout_height="wrap_content"
             android:text="去挑战 ›"
             android:textColor="@color/blue"
-            android:textSize="15sp" />
+            android:textSize="14sp" />
     </LinearLayout>
 
-    <!-- 入口 -->
+    <!-- 三个入口：练习 / 考试 / 挑战 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         android:layout_weight="1"
         android:baselineAligned="false"
         android:clipChildren="false"
@@ -214,78 +226,125 @@
         android:orientation="horizontal">
 
         <LinearLayout
-            android:id="@+id/cardStart"
+            android:id="@+id/cardPractice"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginEnd="18dp"
-            android:layout_weight="1.5"
+            android:layout_marginEnd="14dp"
+            android:layout_weight="1.15"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="12dp">
+            android:padding="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🚀"
-                android:textSize="38sp" />
+                android:textSize="36sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="开始练习"
+                android:layout_marginTop="2dp"
+                android:text="练习"
                 android:textColor="@color/text"
-                android:textSize="27sp"
+                android:textSize="26sp"
                 android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvStartInfo"
+                android:id="@+id/tvPracticeInfo"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="4dp"
                 android:gravity="center"
-                android:text="50 以内加减 · 练习"
+                android:text="50 以内加减 · 10 题"
                 android:textColor="@color/accent"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
-                android:id="@+id/tvStartHint"
+                android:id="@+id/tvPracticeMode"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="2dp"
                 android:gravity="center"
-                android:text="按 OK 开始"
+                android:text="不限时"
                 android:textColor="@color/text_dim"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/cardExam"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_marginEnd="14dp"
+            android:layout_weight="1"
+            android:background="@drawable/selector_card"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📝"
+                android:textSize="36sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="考试"
+                android:textColor="@color/text"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvExamInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="20 题 · 统一判卷"
+                android:textColor="@color/blue"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="center"
+                android:text="看看真实水平"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/cardChallenge"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_marginEnd="18dp"
-            android:layout_weight="1.1"
+            android:layout_weight="1"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⚔️"
-                android:textSize="44sp" />
+                android:textSize="36sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="挑战电脑"
+                android:layout_marginTop="2dp"
+                android:text="挑战"
                 android:textColor="@color/text"
                 android:textSize="26sp"
                 android:textStyle="bold" />
@@ -294,124 +353,147 @@
                 android:id="@+id/tvChallengeInfo"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="4dp"
                 android:gravity="center"
-                android:text="对手 3.2 秒/题"
-                android:textColor="@color/accent"
-                android:textSize="15sp" />
+                android:text="全对 5 轮才解锁"
+                android:textColor="@color/text_dim"
+                android:textSize="14sp" />
         </LinearLayout>
+    </LinearLayout>
+
+    <!-- 家长入口 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:baselineAligned="false"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:orientation="horizontal">
 
         <LinearLayout
-            android:id="@+id/cardWrong"
+            android:id="@+id/btnWrong"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginEnd="18dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
             android:layout_weight="1"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="10dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📕"
-                android:textSize="36sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginStart="8dp"
                 android:text="错题本"
                 android:textColor="@color/text"
-                android:textSize="23sp"
-                android:textStyle="bold" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvWrongCount"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="0 道待攻克"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="0 道"
                 android:textColor="@color/red"
-                android:textSize="17sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/cardStats"
+            android:id="@+id/btnStats"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginEnd="18dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
             android:layout_weight="1"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="10dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="📈"
-                android:textSize="36sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="成长曲线"
+                android:layout_marginStart="8dp"
+                android:text="成长"
                 android:textColor="@color/text"
-                android:textSize="23sp"
-                android:textStyle="bold" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvStatsInfo"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="累计 0 题"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="0 题"
                 android:textColor="@color/text_dim"
-                android:textSize="17sp" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <LinearLayout
-            android:id="@+id/cardSettings"
+            android:id="@+id/btnSettings"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@drawable/selector_card"
             android:clickable="true"
             android:focusable="true"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="10dp">
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⚙️"
-                android:textSize="36sp" />
+                android:textSize="18sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginStart="8dp"
                 android:text="设置"
                 android:textColor="@color/text"
-                android:textSize="23sp"
-                android:textStyle="bold" />
+                android:textSize="15sp" />
 
             <TextView
                 android:id="@+id/tvSettingsInfo"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="阶段与声音"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text=""
                 android:textColor="@color/text_dim"
-                android:textSize="17sp" />
+                android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -419,8 +501,8 @@
         android:id="@+id/tvFooter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="8dp"
         android:text="← → 切换，OK 确认    ·    返回键退出"
         android:textColor="@color/text_dim"
-        android:textSize="16sp" />
+        android:textSize="12sp" />
 </LinearLayout>

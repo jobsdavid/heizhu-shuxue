@@ -1,30 +1,30 @@
 package com.mathking.tv.net
 
+import android.content.Context
+import android.util.Base64
 import com.mathking.tv.data.ProfilePresets
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.OutputStream
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
-import java.net.URLEncoder
 
 /**
- * 极简局域网 HTTP 服务：电视上显示二维码，手机在同一个 WiFi 里扫码填名字/头像。
- *
- * 只在「手机扫码填写」对话框打开期间运行，关掉即停 —— 不做常驻服务，也不对公网暴露。
- * 没有第三方 HTTP 框架，手写 GET/POST 解析，够这个表单用。
+ * 极简局域网 HTTP 服务：电视上显示二维码，手机扫码打开表单填名字/头像。
+ * 只在「手机扫码」对话框打开期间运行，关掉就停，不对局域网常驻暴露。
  */
 class LocalWebServer(
+    private val context: Context,
     private val currentName: () -> String,
     private val currentAvatar: () -> String,
-    private val onSaved: (name: String, avatar: String) -> Unit
+    private val onSaved: (name: String, avatar: String, avatarFile: File?) -> Unit
 ) {
 
     private var socket: ServerSocket? = null
     private var worker: Thread? = null
-
     var port: Int = 0
         private set
 
@@ -36,49 +36,42 @@ class LocalWebServer(
             while (!server.isClosed) {
                 try {
                     server.accept().use { handle(it) }
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
                     if (server.isClosed) break
                 }
             }
-        }.apply {
-            isDaemon = true
-            name = "profile-web"
-        }.also { it.start() }
+        }.apply { isDaemon = true; name = "profile-web" }
+        worker?.start()
         return port
     }
 
     fun stop() {
-        try {
-            socket?.close()
-        } catch (_: Throwable) {
-        }
+        try { socket?.close() } catch (_: Throwable) {}
         socket = null
         worker = null
     }
 
-    // ------------------------------------------------------------ HTTP
-
     private fun handle(client: Socket) {
-        client.soTimeout = 8000
+        client.soTimeout = 10000
         val input = client.getInputStream()
         val output = client.getOutputStream()
 
-        val head = ByteArrayOutputStream()
+        val header = ByteArrayOutputStream()
         var tail = 0
-        while (head.size() < 16384) {
+        while (header.size() < 32768) {
             val b = input.read()
             if (b < 0) return
-            head.write(b)
+            header.write(b)
             tail = (tail shl 8) or b
             if (tail == 0x0D0A0D0A) break
         }
-        val header = String(head.toByteArray(), Charsets.UTF_8)
-        val first = header.lineSequence().firstOrNull() ?: return
-        val parts = first.split(" ")
+        val head = String(header.toByteArray(), Charsets.UTF_8)
+        val firstLine = head.lineSequence().firstOrNull() ?: return
+        val parts = firstLine.split(" ")
         val method = parts.getOrNull(0) ?: "GET"
         val path = parts.getOrNull(1) ?: "/"
-        val length = Regex("(?i)content-length:\\s*(\\d+)")
-            .find(header)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
+        val length = Regex("(?i)content-length:\\s*(\\d+)").find(head)
+            ?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 0
 
         if (method == "POST" && path.startsWith("/save")) {
             val body = ByteArray(length)
@@ -90,50 +83,58 @@ class LocalWebServer(
             }
             val form = String(body, 0, off, Charsets.UTF_8)
             val params = form.split("&").mapNotNull { kv ->
-                val idx = kv.indexOf('=')
-                if (idx <= 0) return@mapNotNull null
-                decode(kv.substring(0, idx)) to decode(kv.substring(idx + 1))
+                if (!kv.contains("=")) return@mapNotNull null
+                val k = URLDecoder.decode(kv.substringBefore("="), "UTF-8")
+                val v = URLDecoder.decode(kv.substringAfter("="), "UTF-8")
+                k to v
             }.toMap()
-            val name = (params["name"] ?: "").trim().take(8)
-            val avatar = (params["avatar"] ?: "").trim().ifBlank { "🐷" }
-            onSaved(name, avatar)
-            respond(output, savedPage(name, avatar))
+
+            val name = params["name"]?.trim().orEmpty().take(8)
+            val avatar = params["avatar"]?.trim().orEmpty().ifBlank { "🐷" }
+            val photo = params["avatar_data"]?.trim().orEmpty()
+            val file = if (photo.startsWith("data:image")) savePhoto(photo) else null
+
+            onSaved(name, avatar, file)
+            respond(output, savedPage(name, avatar, file != null))
         } else {
             respond(output, formPage())
         }
     }
 
-    private fun decode(s: String): String = try {
-        URLDecoder.decode(s, "UTF-8")
-    } catch (_: Throwable) {
-        s
+    /** 手机端已用 canvas 压到 256×256 的 JPEG，直接落盘到 filesDir/avatar.jpg */
+    private fun savePhoto(dataUrl: String): File? = try {
+        val base64 = dataUrl.substringAfter(",", "")
+        if (base64.isEmpty()) null else {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            if (bytes.isEmpty()) null else {
+                val file = File(context.filesDir, "avatar.jpg")
+                file.writeBytes(bytes)
+                file
+            }
+        }
+    } catch (t: Throwable) {
+        null
     }
 
-    private fun respond(out: OutputStream, html: String) {
-        val body = html.toByteArray(Charsets.UTF_8)
-        val header = buildString {
+    private fun respond(output: OutputStream, html: String) {
+        val bytes = html.toByteArray(Charsets.UTF_8)
+        val head = buildString {
             append("HTTP/1.1 200 OK\r\n")
             append("Content-Type: text/html; charset=utf-8\r\n")
-            append("Content-Length: ${body.size}\r\n")
+            append("Content-Length: ${bytes.size}\r\n")
             append("Cache-Control: no-store\r\n")
             append("Connection: close\r\n\r\n")
-        }
-        try {
-            out.write(header.toByteArray(Charsets.UTF_8))
-            out.write(body)
-            out.flush()
-        } catch (_: Throwable) {
-        }
+        }.toByteArray(Charsets.UTF_8)
+        output.write(head)
+        output.write(bytes)
+        output.flush()
     }
 
-    // ------------------------------------------------------------ 页面
-
     private fun formPage(): String {
-        val avatarButtons = ProfilePresets.avatars.joinToString("") { e ->
-            val checked = if (e == currentAvatar()) " checked" else ""
-            "<label><input type=radio name=avatar value=\"$e\"$checked><span>$e</span></label>"
+        val avatarButtons = ProfilePresets.avatars.joinToString("") { a ->
+            val checked = if (a == currentAvatar()) " checked" else ""
+            """<label class="a"><input type="radio" name="avatar" value="$a"$checked><span>$a</span></label>"""
         }
-        val presetNames = ProfilePresets.names.joinToString(" · ")
         return """
 <!doctype html>
 <html lang="zh"><head>
@@ -141,56 +142,85 @@ class LocalWebServer(
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>黑猪数学 · 填资料</title>
 <style>
-  body{font-family:-apple-system,"PingFang SC",sans-serif;background:#0E1124;color:#fff;margin:0;padding:22px}
-  h1{font-size:22px;color:#FFC53D;margin:0 0 4px}
-  p{color:#9AA3C7;font-size:14px;margin:0 0 6px;line-height:1.5}
-  label.f{display:block;font-size:14px;color:#9AA3C7;margin:16px 0 6px}
-  input[type=text]{width:100%;box-sizing:border-box;padding:14px;font-size:18px;border-radius:12px;
-    border:1px solid #2A3055;background:#171B33;color:#fff}
-  .hint{font-size:12px;color:#6E7699;margin-top:6px}
-  .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-  .row label{width:58px;height:58px;display:flex;align-items:center;justify-content:center;
-    font-size:29px;background:#1E2342;border:2px solid #2A3055;border-radius:14px;margin:0}
-  .row input{display:none}
-  .row input:checked + span{filter:drop-shadow(0 0 6px #FFC53D)}
-  .row label:has(input:checked){border-color:#FFC53D;background:#2C3363}
-  button{width:100%;margin-top:22px;padding:16px;font-size:18px;font-weight:700;border:0;
-    border-radius:14px;background:#FFC53D;color:#1A1A1A}
+ *{box-sizing:border-box}
+ body{font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;background:#0E1124;color:#fff;margin:0;padding:22px 18px 40px}
+ h1{font-size:22px;color:#FFC53D;margin:0 0 4px}
+ .sub{color:#9AA3C7;font-size:13px;margin:0 0 20px}
+ label.t{display:block;font-size:14px;color:#9AA3C7;margin:16px 0 8px}
+ input[type=text]{width:100%;padding:14px;font-size:19px;border-radius:12px;border:1px solid #2A3055;background:#171B33;color:#fff}
+ .row{display:flex;flex-wrap:wrap;gap:9px}
+ .a{width:58px;height:58px;display:flex;align-items:center;justify-content:center;font-size:29px;background:#1E2342;border:2px solid #2A3055;border-radius:14px}
+ .a input{display:none}
+ .a:has(input:checked){border-color:#FFC53D;background:#2C3363;box-shadow:0 0 0 2px #FFC53D inset}
+ .file{display:block;margin-top:8px;padding:14px;border:1px dashed #2A3055;border-radius:12px;color:#9AA3C7;font-size:14px}
+ .file input{width:100%;color:#9AA3C7}
+ #preview{margin-top:10px}
+ #preview img{width:76px;height:76px;border-radius:50%;object-fit:cover;border:3px solid #FFC53D}
+ button{width:100%;margin-top:26px;padding:17px;font-size:19px;font-weight:700;border:0;border-radius:14px;background:#FFC53D;color:#161616}
+ .foot{margin-top:14px;font-size:12px;color:#5D6689;text-align:center}
 </style></head><body>
 <h1>黑猪数学</h1>
-<p>手机填好，电视上马上更新</p>
+<p class="sub">填好点保存，电视上会立刻更新</p>
 <form method="post" action="/save">
-  <label class="f">名字（最多 8 个字）</label>
-  <input type="text" name="name" maxlength="8" value="${escape(currentName())}" placeholder="例如 王小明" required>
-  <div class="hint">也可以直接用这些小名：$presetNames</div>
-  <label class="f">选个头像</label>
-  <div class="row">$avatarButtons</div>
-  <button type="submit">保存</button>
+ <label class="t">名字（最多 8 个字）</label>
+ <input type="text" name="name" maxlength="8" value="${escape(currentName())}" placeholder="比如 王小明" required>
+
+ <label class="t">或者用自己的照片当头像</label>
+ <label class="file">选一张照片<input type="file" accept="image/*" onchange="shrink(this)"></label>
+ <input type="hidden" name="avatar_data" id="avatarData">
+ <div id="preview"></div>
+
+ <label class="t">也可以选个表情头像</label>
+ <div class="row">$avatarButtons</div>
+
+ <button type="submit">保存</button>
+ <p class="foot">只在这个页面打开时有效</p>
 </form>
+<script>
+function shrink(input){
+  var f=input.files[0];
+  if(!f) return;
+  var img=new Image();
+  img.onload=function(){
+    var s=Math.min(img.width,img.height);
+    var c=document.createElement('canvas');
+    c.width=256;c.height=256;
+    c.getContext('2d').drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,256,256);
+    var data=c.toDataURL('image/jpeg',0.85);
+    document.getElementById('avatarData').value=data;
+    document.getElementById('preview').innerHTML='<img src="'+data+'">';
+  };
+  img.src=URL.createObjectURL(f);
+}
+</script>
 </body></html>
 """
     }
 
-    private fun savedPage(name: String, avatar: String): String = """
+    private fun savedPage(name: String, avatar: String, hasPhoto: Boolean): String {
+        val who = if (name.isBlank()) "小朋友" else escape(name)
+        val mark = if (hasPhoto) "📷" else avatar
+        return """
 <!doctype html>
 <html lang="zh"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>已保存</title>
+<title>已保存 · 黑猪数学</title>
 <style>
-  body{font-family:-apple-system,"PingFang SC",sans-serif;background:#0E1124;color:#fff;
-    margin:0;padding:40px 22px;text-align:center}
-  .big{font-size:64px;margin-bottom:10px}
-  h1{font-size:22px;color:#3DD68C;margin:0 0 10px}
-  p{color:#9AA3C7;font-size:15px}
-  a{display:inline-block;margin-top:22px;color:#FFC53D;text-decoration:none;font-size:16px}
+ body{font-family:-apple-system,"PingFang SC",sans-serif;background:#0E1124;color:#fff;margin:0;padding:48px 22px;text-align:center}
+ .ok{font-size:64px}
+ h1{font-size:24px;color:#5BE49B;margin:12px 0 6px}
+ p{color:#9AA3C7;font-size:15px}
+ a{display:inline-block;margin-top:24px;padding:14px 22px;border-radius:12px;background:#1E2342;color:#FFC53D;text-decoration:none;font-size:15px}
 </style></head><body>
-<div class="big">$avatar</div>
+<div class="ok">✅</div>
 <h1>已保存</h1>
-<p>${escape(name.ifBlank { "小朋友" })}，回到电视看看吧</p>
+<p>$mark $who</p>
+<p>电视上已经更新，这个页面可以关掉了</p>
 <a href="/">再改一次</a>
 </body></html>
 """
+    }
 
     private fun escape(s: String): String = s
         .replace("&", "&amp;")
@@ -199,22 +229,21 @@ class LocalWebServer(
         .replace("\"", "&quot;")
 
     companion object {
-
-        /** 电视在局域网里的 IPv4（优先 site-local） */
+        /** 电视的局域网 IPv4，优先无线，其次有线 */
         fun localIpv4(): String? {
-            try {
-                val interfaces = NetworkInterface.getNetworkInterfaces() ?: return null
-                for (nif in interfaces) {
-                    if (!nif.isUp || nif.isLoopback) continue
-                    for (addr in nif.inetAddresses) {
-                        if (addr is Inet4Address && !addr.isLoopbackAddress && addr.isSiteLocalAddress) {
-                            return addr.hostAddress
-                        }
+            return try {
+                NetworkInterface.getNetworkInterfaces().toList()
+                    .filter { it.isUp && !it.isLoopback }
+                    .sortedBy { if (it.name.startsWith("wlan")) 0 else 1 }
+                    .firstNotNullOfOrNull { nif ->
+                        nif.inetAddresses.toList()
+                            .filterIsInstance<Inet4Address>()
+                            .firstOrNull { it.isSiteLocalAddress }
+                            ?.hostAddress
                     }
-                }
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                null
             }
-            return null
         }
     }
 }

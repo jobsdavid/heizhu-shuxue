@@ -50,6 +50,11 @@ class Settings(context: Context) {
         get() = sp.getString("avatar", "🐷") ?: "🐷"
         set(value) = sp.edit().putString("avatar", value).apply()
 
+    /** 自定义头像文件名（在 filesDir 下），空 = 用 emoji */
+    var avatarImage: String
+        get() = sp.getString("avatar_image", "") ?: ""
+        set(value) = sp.edit().putString("avatar_image", value).apply()
+
     var unlockedAll: Boolean
         get() = sp.getBoolean("unlocked_all", false)
         set(value) = sp.edit().putBoolean("unlocked_all", value).apply()

@@ -1,7 +1,10 @@
 package com.mathking.tv.ui
 
+import android.graphics.BitmapFactory
+import android.graphics.Outline
 import android.os.Bundle
 import android.view.View
+import android.view.ViewOutlineProvider
 import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
@@ -16,6 +19,7 @@ import com.mathking.tv.data.TodaySummary
 import com.mathking.tv.databinding.FragmentHomeBinding
 import com.mathking.tv.stats.Analytics
 import com.mathking.tv.util.Fmt
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -48,18 +52,26 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentHomeBinding.bind(view)
         Ui.focusZoom(
-            b.cardStart, b.cardDaily, b.cardChallenge,
-            b.cardWrong, b.cardStats, b.cardSettings, b.rankBox
+            b.cardPractice, b.cardExam, b.cardChallenge, b.cardDaily,
+            b.btnWrong, b.btnStats, b.btnSettings, b.rankBox
         )
 
         b.rankBox.setOnClickListener {
             ProfileDialog(requireActivity(), onChanged = { refresh() }).show()
         }
 
-        b.cardStart.setOnClickListener {
+        b.cardPractice.setOnClickListener {
+            val s = App.of(requireContext()).settings
+            val mode = if (s.mode == PlayMode.TIMED) PlayMode.TIMED else PlayMode.PRACTICE
+            (activity as? MainActivity)?.navigate(
+                PracticeFragment.newInstance(s.stageId, mode.id, s.questionCount, false)
+            )
+        }
+
+        b.cardExam.setOnClickListener {
             val s = App.of(requireContext()).settings
             (activity as? MainActivity)?.navigate(
-                PracticeFragment.newInstance(s.stageId, s.mode.id, s.questionCount, false)
+                PracticeFragment.newInstance(s.stageId, PlayMode.EXAM.id, 20, false)
             )
         }
         b.cardDaily.setOnClickListener {
@@ -91,13 +103,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 (activity as? MainActivity)?.navigate(ChallengeFragment.newInstance(s.stageId))
             }
         }
-        b.cardWrong.setOnClickListener {
+        b.btnWrong.setOnClickListener {
             (activity as? MainActivity)?.navigate(WrongBookFragment())
         }
-        b.cardStats.setOnClickListener {
+        b.btnStats.setOnClickListener {
             (activity as? MainActivity)?.navigate(StatsFragment())
         }
-        b.cardSettings.setOnClickListener {
+        b.btnSettings.setOnClickListener {
             (activity as? MainActivity)?.navigate(SettingsFragment())
         }
     }
@@ -105,15 +117,37 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     override fun onResume() {
         super.onResume()
         refresh()
-        b.cardStart.requestFocus()
+        b.cardPractice.requestFocus()
+    }
+
+    /** 自定义头像优先，没有就用 emoji */
+    private fun applyAvatar(settings: com.mathking.tv.data.Settings) {
+        val file = if (settings.avatarImage.isNotBlank())
+            File(requireContext().filesDir, settings.avatarImage) else null
+        val bmp = file?.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.absolutePath) }
+        if (bmp != null) {
+            b.imgAvatar.setImageBitmap(bmp)
+            b.imgAvatar.visibility = View.VISIBLE
+            b.imgAvatar.clipToOutline = true
+            b.imgAvatar.outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setOval(0, 0, view.width, view.height)
+                }
+            }
+            b.tvRankBadge.visibility = View.GONE
+        } else {
+            b.imgAvatar.visibility = View.GONE
+            b.tvRankBadge.visibility = View.VISIBLE
+            b.tvRankBadge.text = settings.avatar
+        }
     }
 
     private fun refresh() {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
-        val planned = if (app.settings.mode == PlayMode.EXAM) 20 else app.settings.questionCount
-        b.tvStartInfo.text = "${stage.name} · ${app.settings.mode.label}\n$planned 题"
-        b.tvSettingsInfo.text = "阶段与声音"
+        b.tvPracticeInfo.text = "${stage.name} · ${app.settings.questionCount} 题"
+        b.tvExamInfo.text = "${stage.name} · 20 题"
+        b.tvSettingsInfo.text = ""
 
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         app.repo.async({
@@ -135,7 +169,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             )
             val rank = Analytics.rank(power)
 
-            b.tvRankBadge.text = app.settings.avatar
+            applyAvatar(app.settings)
             b.tvRankName.text = app.settings.userName.ifBlank { "小朋友" }
             b.tvRankName.setTextColor(Ui.color(requireContext(), rank.color))
             b.tvPower.text = "${rank.name} · 算力 ${power.toInt()}"
@@ -166,8 +200,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 Ui.color(requireContext(), if (challengePace == null) R.color.text_dim else R.color.accent)
             )
 
-            b.tvWrongCount.text = "${data.wrong} 道待攻克"
-            b.tvStatsInfo.text = "累计 ${overall.questions} 题"
+            b.tvWrongCount.text = "${data.wrong} 道"
+            b.tvStatsInfo.text = "${overall.questions} 题"
 
             val who = app.settings.userName.ifBlank { "小朋友" }
             b.tvSubtitle.text = when {
@@ -178,13 +212,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             val progress = app.settings.unlockProgress(
                 stage, data.stageOverall.questions, data.stageOverall.accuracy
             )
-            b.tvStartHint.text = when {
-                progress == null -> "按 OK 开始"
-                progress.needMoreQuestions > 0 && progress.needMoreAccuracy > 0 ->
-                    "还差 ${progress.needMoreQuestions} 题 · 正确率 ${Fmt.pct(data.stageOverall.accuracy)}"
-                progress.needMoreQuestions > 0 -> "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
-                progress.needMoreAccuracy > 0 -> "正确率到 85% 解锁下一阶段"
-                else -> "按 OK 开始"
+            b.tvPracticeMode.text = when {
+                progress != null && progress.needMoreQuestions > 0 ->
+                    "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
+                progress != null && progress.needMoreAccuracy > 0 ->
+                    "正确率到 85% 解锁下一阶段"
+                app.settings.mode == PlayMode.TIMED -> "限时"
+                else -> "不限时"
             }
         }
     }
