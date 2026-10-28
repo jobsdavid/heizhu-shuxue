@@ -113,7 +113,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
                 b.tvPace.text = "还没有达标战绩"
                 b.tvQuestion.text = "挑战未解锁"
                 b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
-                b.tvHint.text = "先去练一轮「${stage.name}」，正确率到 80% 以上就能来挑战"
+                b.tvHint.text = "先在「${stage.name}」做一轮全对（至少 5 题），就能解锁挑战"
                 b.tvCountdown.text = ""
                 b.progressComputer.visibility = View.GONE
                 b.tvAnswer.visibility = View.GONE
@@ -338,7 +338,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         val winTimes = records.filter { it.firstOk }.map { it.ms }
         val avg = if (winTimes.isEmpty()) 0.0 else winTimes.average() / 1000.0
         val tip = when {
-            win -> "电脑下次会更快，继续练才守得住"
+            win -> "赢了！电脑难度跟着你练习里的最快成绩走，想升级就去练得更快"
             draw -> "就差一点点，再快一点就赢了"
             else -> "再快一点就能追上电脑"
         }

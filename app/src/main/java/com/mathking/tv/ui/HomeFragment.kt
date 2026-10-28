@@ -77,8 +77,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             if (pace == null) {
                 android.widget.Toast.makeText(
                     requireContext(),
-                    "先完成一轮正确率 80% 以上的练习，才能挑战电脑",
-                    android.widget.Toast.LENGTH_SHORT
+                    "先在「${StageCatalog.byId(s.stageId).name}」做一轮全对（至少 5 题），才能挑战电脑",
+                    android.widget.Toast.LENGTH_LONG
                 ).show()
             } else {
                 (activity as? MainActivity)?.navigate(ChallengeFragment.newInstance(s.stageId))
@@ -140,7 +140,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             todayDaily = data.daily
             b.tvDailyInfo.text = when {
                 data.daily == null -> "10 题全对点亮今天"
-                data.daily.full -> "今天已通关 ✓ 连续打卡 ${data.dailyStreak} 天"
+                data.daily.full ->
+                    "${StageCatalog.byId(data.daily.stageId).name} 全对通关 ✓ 连续打卡 ${data.dailyStreak} 天"
                 else -> "今天最好 ${data.daily.correct}/${data.daily.total}，全对才算通关"
             }
             b.tvDailyAction.text = if (data.daily?.full == true) "明天再来" else "去挑战 ›"
@@ -148,7 +149,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             challengePace = data.bestPaceMs?.let { (it * 0.8).toLong().coerceIn(1200L, 20000L) }
             b.tvChallengeInfo.text = challengePace?.let {
                 "对手 ${String.format("%.1f", it / 1000.0)} 秒/题"
-            } ?: "先练一轮 80 分"
+            } ?: "全对一轮才解锁"
             b.tvChallengeInfo.setTextColor(
                 Ui.color(requireContext(), if (challengePace == null) R.color.text_dim else R.color.accent)
             )

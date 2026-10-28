@@ -293,8 +293,8 @@ class Repo(context: Context) {
 
     
     /**
-     * 挑战模式的基准：该阶段「正确率 ≥ 80% 且至少 5 题」的场次里，
-     * 平均每题用时最快的一次（毫秒）。没有达标记录就返回 null，挑战模式不解锁。
+     * 挑战模式的基准：该阶段「全对且至少 5 题、非挑战模式」的场次里，
+     * 平均每题用时最快的一次（毫秒）。必须全对才算达标，没有就不解锁挑战。
      */
     fun bestPaceMs(stageId: String): Long? {
         helper.readableDatabase.rawQuery(
@@ -302,7 +302,7 @@ class Repo(context: Context) {
             SELECT MIN(duration_ms * 1.0 / total)
             FROM session
             WHERE finished=1 AND stage_id=? AND total>=5
-              AND correct_first * 1.0 / total >= 0.8
+              AND correct_first = total
               AND mode != 'challenge'
             """.trimIndent(),
             arrayOf(stageId)
