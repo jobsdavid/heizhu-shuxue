@@ -145,8 +145,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private fun refresh() {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
-        b.tvPracticeInfo.text = "${stage.name} · ${app.settings.questionCount} 题"
-        b.tvExamInfo.text = "${stage.name} · 20 题"
+        val stageNo = StageCatalog.indexOf(stage) + 1
+        b.tvPracticeInfo.text = "第 $stageNo 阶 · ${stage.name}"
+        b.tvExamInfo.text = "第 $stageNo 阶 · 20 题"
         b.tvSettingsInfo.text = ""
 
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -217,8 +218,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                     "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
                 progress != null && progress.needMoreAccuracy > 0 ->
                     "正确率到 85% 解锁下一阶段"
-                app.settings.mode == PlayMode.TIMED -> "限时"
-                else -> "不限时"
+                else -> "${app.settings.questionCount} 题 · " +
+                    if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }
         }
     }

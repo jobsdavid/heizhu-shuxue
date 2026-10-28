@@ -9,6 +9,7 @@ import com.mathking.tv.App
 import com.mathking.tv.MainActivity
 import com.mathking.tv.R
 import com.mathking.tv.data.PlayMode
+import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.databinding.FragmentResultBinding
 import com.mathking.tv.stats.Analytics
 import com.mathking.tv.util.Fmt
@@ -66,6 +67,33 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
         }
         b.tvLine3.setTextColor(Ui.color(requireContext(), if (unlocked != null) R.color.accent else R.color.blue))
 
+        // 解锁了就把话说明白，别只藏在第三行蓝字后面
+        if (unlocked != null) {
+            val idx = StageCatalog.indexOf(unlocked)
+            b.unlockBox.visibility = android.view.View.VISIBLE
+            b.tvUnlockName.text = unlocked.name
+            b.tvUnlockTip.text = "第 ${idx + 1} 阶 · ${unlocked.tip}"
+            b.btnGoNext.setOnClickListener {
+                app.settings.stageId = unlocked.id
+                act.goHome()
+                act.navigate(
+                    PracticeFragment.newInstance(
+                        unlocked.id,
+                        if (app.settings.mode == PlayMode.TIMED) PlayMode.TIMED.id else PlayMode.PRACTICE.id,
+                        app.settings.questionCount,
+                        false
+                    )
+                )
+            }
+            b.btnLater.setOnClickListener {
+                b.unlockBox.visibility = android.view.View.GONE
+                b.btnAgain.requestFocus()
+            }
+            b.btnGoNext.requestFocus()
+        } else {
+            b.unlockBox.visibility = android.view.View.GONE
+        }
+
         val wrong = summary.attempts.filter { !it.firstOk }
         b.tvWrongTitle.text = if (wrong.isEmpty()) "错题回顾" else "错题回顾（${wrong.size} 道）"
         b.wrongList.removeAllViews()
@@ -116,8 +144,8 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
             )
         }
         b.btnHome.setOnClickListener { act.goHome() }
-        Ui.focusZoom(b.btnAgain, b.btnHome)
-        b.btnAgain.requestFocus()
+        Ui.focusZoom(b.btnAgain, b.btnHome, b.btnGoNext, b.btnLater)
+        if (unlocked == null) b.btnAgain.requestFocus()
     }
 
     override fun onDestroyView() {

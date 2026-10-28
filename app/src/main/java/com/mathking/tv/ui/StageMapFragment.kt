@@ -109,11 +109,11 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
         }
 
         row.addView(TextView(ctx).apply {
-            text = "s${index + 1}"
+            text = "${index + 1}"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setTextColor(Ui.color(ctx, R.color.accent))
             gravity = Gravity.CENTER
-            width = (34 * density).toInt()
+            width = (30 * density).toInt()
         })
 
         val mid = LinearLayout(ctx).apply {

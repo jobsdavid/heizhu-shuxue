@@ -2,7 +2,36 @@
 
 小米电视 / Android TV 上的小学数学口算闯关应用。遥控器操作，数据全部存在本机 SQLite。
 
-## 一、能做什么
+- 加减乘除按小学课标拆成 **12 个台阶**，每阶只改一个变量（数域 / 进退位 / 通分）
+- **答对才走**；同一个坑连错 3 次自动跳过，语音提示该补哪块，题目记进错题本
+- 算力 0~1000 + 六档段位，成长曲线 / 练习热力图 / 12 个成就
+- 挑战电脑：对手速度 = 孩子最近 5 场满分的平均每题用时 ×0.8
+
+![首页](docs/screenshots/01-home.png)
+
+## 一、界面
+
+| 练习（答对才走） | 分数题（真·上下结构） |
+|---|---|
+| <img src="docs/screenshots/02-practice.png" width="460"> | <img src="docs/screenshots/10-fraction.png" width="460"> |
+
+| 阶段地图（s1~s12 一屏可见） | 阶段详情（教什么、练到哪、解锁条件） |
+|---|---|
+| <img src="docs/screenshots/05-stages.png" width="460"> | <img src="docs/screenshots/06-stage-detail.png" width="460"> |
+
+| 结果页（解锁新阶段可以直接去练） | 错题本 |
+|---|---|
+| <img src="docs/screenshots/11-result.png" width="460"> | <img src="docs/screenshots/09-wrongbook.png" width="460"> |
+
+| 成长曲线 / 知识点 / 热力图 | 成就墙 |
+|---|---|
+| <img src="docs/screenshots/07-stats.png" width="460"> | <img src="docs/screenshots/08-achievements.png" width="460"> |
+
+| 设置 | 关于（数据本地存储 + 备份提醒） |
+|---|---|
+| <img src="docs/screenshots/03-settings.png" width="460"> | <img src="docs/screenshots/04-about.png" width="460"> |
+
+## 二、能做什么
 
 | 功能 | 说明 |
 |------|------|
@@ -20,7 +49,7 @@
 | 语音 | 内置语音包朗读题目，练习/限时/考试语速不同，带符号停顿 |
 | 我的资料 | 12 个表情头像 + 24 个预设昵称；也可以用**手机扫码传自己的照片、打中文名** |
 
-## 二、构建
+## 三、构建
 
 环境：JDK 17、Android SDK（platform 34 + build-tools 34.0.0）、Gradle 8.7。
 
@@ -39,7 +68,7 @@ cd ~/kids-tv
 ~/Android/Sdk/platform-tools/adb shell am start -n com.mathking.tv/.MainActivity
 ```
 
-## 三、阶段与题型
+## 四、阶段与题型
 
 阶段按小学课标排成 12 个台阶，**加减是一体的（同阶段混着出），乘法和除法各自独立**：
 
@@ -72,7 +101,7 @@ cd ~/kids-tv
 画成上下结构；答案框用固定布局画（`answerFraction`），避免 TextView 行高裁掉分数的上下两行。
 分数题不朗读——语音包是按整数念的，念分数反而听不明白。
 
-## 四、语音包
+## 五、语音包
 
 电视上没有中文 TTS 引擎（实测小米电视 `tts_default_synth = null`），所以题目朗读用内置音频拼接。
 
@@ -90,7 +119,7 @@ ffmpeg -i app/src/main/assets/voice/san.mp3 \
   -ar 22050 -ac 1 -f s16le app/src/main/assets/voice/raw/san.raw
 ```
 
-## 五、代码结构
+## 六、代码结构
 
 ```
 app/src/main/java/com/mathking/tv/
@@ -112,7 +141,7 @@ app/src/main/java/com/mathking/tv/
 └── util/                  dp、焦点动画、格式化
 ```
 
-## 六、首页结构
+## 七、首页结构
 
 ```
 黑猪数学                    [🐷 名字 · 段位 · 算力]   ← 点这里改资料
@@ -127,7 +156,7 @@ app/src/main/java/com/mathking/tv/
 练习卡的副标题会跟着设置里的「练习方式」变（不限时 / 限时）；
 考试固定 20 题；挑战卡显示还差几场满分或对手速度。
 
-## 七、手机扫码填资料
+## 八、手机扫码填资料
 
 电视遥控器打中文太痛苦，所以资料页里有个「手机扫码改名字和头像」：
 
@@ -140,7 +169,7 @@ app/src/main/java/com/mathking/tv/
 二维码用 `com.google.zxing:core`（只引 core，不引 android 版）。
 服务只在对话框打开期间运行，关掉即停，不对局域网常驻暴露。
 
-## 八、数据
+## 九、数据
 
 `~/kids-tv` 内的 SQLite 文件在电视上：`/data/data/com.mathking.tv/databases/mathking.db`
 
@@ -154,14 +183,14 @@ app/src/main/java/com/mathking/tv/
 
 数据库版本 3，升级走 `onUpgrade` 逐级 ALTER/CREATE，不会清数据。
 
-## 九、口径约定（改代码前先看这条）
+## 十、口径约定（改代码前先看这条）
 
 - **算力 / 今日 / 成长曲线 / 知识点统计** 全部排除 `mode='challenge'`（抢答正确率天然低，混进来会失真）
 - 阶段解锁看**该阶段累计**：≥20 题且正确率 ≥85%（`Settings.UNLOCK_MIN_*`）
 - 错题重练保留原始知识点，不记成「错题重练」
 - 首次答对才算「做对」；重答正确只让错题本计一次 streak
 
-## 九之二、卡住就过
+## 十一、卡住就过
 
 同一道题连错 3 次，程序会：
 1. 用 1.55 倍速念一句该补的知识点（「这题先跳过。个位不够减，向十位借一当十」）
@@ -170,12 +199,12 @@ app/src/main/java/com/mathking/tv/
 
 答案框里记的是 3 次尝试、首次未答对，所以这题一定会出现在错题本里。
 
-## 九之三、关于 / 数据备份
+## 十二、关于 / 数据备份
 
 设置页右上角「ⓘ 关于」：版本、产品定位、以及一条重要提示——**所有数据都存在这台电视本地，
 换电视 / 恢复出厂 / 卸载重装都会丢**，想留住孩子的成长轨迹要定期备份（一键导出计划在后续版本）。
 
-## 十、已知边界
+## 十三、已知边界
 
 - 分数进阶（s10）在代码里是 `available = false`，UI 不展示
 - 网络对战未实现，`sync_queue` / `session.player_id` 是为它留的

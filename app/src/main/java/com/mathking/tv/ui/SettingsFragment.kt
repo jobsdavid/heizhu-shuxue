@@ -112,7 +112,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private fun refresh() {
         val stage = StageCatalog.byId(app.settings.stageId)
         b.tvProfile.text = "${app.settings.avatar} ${app.settings.userName.ifBlank { "小朋友" }}"
-        b.tvStage.text = stage.name
+        b.tvStage.text = "第 ${StageCatalog.indexOf(stage) + 1} 阶 · ${stage.name}"
         b.tvCount.text = "${app.settings.questionCount} 题"
         b.tvMode.text = when (app.settings.mode) {
             PlayMode.TIMED -> "练习 · 限时"
