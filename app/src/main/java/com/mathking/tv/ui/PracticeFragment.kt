@@ -69,6 +69,12 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private var seed = 0L
     private var dailyDay: String? = null
 
+    /** 跳过提示的语音还在播时，别让新题的朗读把它打断 */
+    private var suppressSpeakOnce = false
+
+    /** 跳过提示要留到下一题上，不然 200ms 就切走了孩子根本看不见 */
+    private var skipTipPending: String? = null
+
     private var engine: SessionEngine? = null
     private val input = StringBuilder()
     private var sessionId = 0L
@@ -271,6 +277,15 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             })
         }
         b.tvFeedback.text = ""
+        skipTipPending?.let { tip ->
+            b.tvFeedback.text = tip
+            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.accent))
+            val shown = tip
+            handler.postDelayed({
+                if (_b != null && b.tvFeedback.text == shown) b.tvFeedback.text = ""
+            }, 2200)
+            skipTipPending = null
+        }
         b.tvHint.text = if (q.findError) "这道题有错误，填正确答案" else ""
         // 分数题不朗读，按钮弱化，免得娃按了没反应以为坏了
         b.btnRepeat.alpha = if (q.speak.isBlank()) 0.35f else 1f
@@ -399,6 +414,14 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             }
             b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
             nextOrFinish(950)
+        } else if (result.skipped) {
+            Sfx.wrong()
+            // 快速告诉孩子该补哪块：优先用这道题的知识点提示
+            val tip = result.question.hint.ifBlank { "这题多练两遍就熟了" }
+            app.speaker.speak("这题先跳过。$tip", 1.55f * app.settings.speechScale)
+            skipTipPending = "答错 3 次，这题跳过 · 已记进错题本"
+            suppressSpeakOnce = true
+            nextOrFinish(200)
         } else if (result.retry) {
             Sfx.wrong()
             sayFeedback("回答错误")
@@ -426,7 +449,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 if (!isAdded || _b == null) return@postDelayed
                 e.advance()
                 render()
-                speakQuestion()
+                if (suppressSpeakOnce) suppressSpeakOnce = false else speakQuestion()
             }, delay)
         }
     }

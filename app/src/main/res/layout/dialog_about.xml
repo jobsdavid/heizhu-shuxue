@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="660dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_card"
+    android:orientation="vertical"
+    android:padding="26dp">
+
+    <TextView
+        android:id="@+id/tvAboutTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="黑猪数学 v1.0"
+        android:textColor="@color/accent"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:lineSpacingExtra="4dp"
+        android:text="一个数学爱好者给孩子做的练习工具。\n不追求题海，先把每一步算理弄明白。"
+        android:textColor="@color/text"
+        android:textSize="15sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_info"
+        android:lineSpacingExtra="5dp"
+        android:padding="14dp"
+        android:text="数据都在本机\n练习记录、错题、成长曲线全部存在这台电视里，不上传任何服务器。\n\n换电视、恢复出厂、卸载重装，记录都会丢。\n想留住孩子的成长轨迹，请定期备份（一键导出计划在后续版本）。"
+        android:textColor="@color/text_dim"
+        android:textSize="14sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:text="© 2026 黑猪数学"
+        android:textColor="@color/text_dim"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/btnAboutClose"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/selector_key"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:text="知道了"
+        android:textColor="@color/key_text"
+        android:textSize="17sp"
+        android:textStyle="bold" />
+</LinearLayout>

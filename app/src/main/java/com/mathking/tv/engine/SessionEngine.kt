@@ -58,7 +58,9 @@ class SessionEngine(
         val timedOut: Boolean,
         val combo: Int,
         val question: Question,
-        val last: Boolean
+        val last: Boolean,
+        /** 连错到上限，这题被跳过（已进错题本） */
+        val skipped: Boolean = false
     )
 
     private fun generate(count: Int): List<Question> {
@@ -100,6 +102,15 @@ class SessionEngine(
             // 第一次没答对就记进错题本：一直卡着答不对的题，恰恰是最该复习的。
             // 之前只在「答错后又答对」时才记，导致卡死的题永远进不了错题本。
             if (attemptCount == 1) repo.upsertWrong(stage.id, q)
+            if (attemptCount >= MAX_ATTEMPTS) {
+                // 同一个坑摔三次就别耗着了：记一笔、进错题本、跳过去，
+                // 免得孩子卡在那里把整轮练习都放弃掉
+                val rec = AttemptRecord(index, q, value, false, attemptCount, ms, timedOut)
+                records.add(rec)
+                repo.saveAttempt(sessionId, rec)
+                questionDone = true
+                return SubmitResult(false, false, timedOut, 0, q, isLast, skipped = true)
+            }
             if (mode == PlayMode.PRACTICE || mode == PlayMode.WRONG) {
                 combo = 0
                 SubmitResult(false, true, timedOut, 0, q, isLast)
@@ -143,4 +154,9 @@ class SessionEngine(
 
     /** 限时模式每题秒数：阶段目标用时 × 2.2，最少 8 秒，最多 25 秒 */
     fun timeLimitSeconds(): Int = (stage.targetSeconds * 2.2).toInt().coerceIn(8, 25)
+    companion object {
+        /** 同一题最多答几次，超过就跳过 */
+        const val MAX_ATTEMPTS = 3
+    }
+
 }

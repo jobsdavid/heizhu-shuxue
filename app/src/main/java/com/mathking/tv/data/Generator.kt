@@ -177,8 +177,14 @@ object Generator {
         var b = bMin
         var tries = 0
         while (tries++ < 400) {
+            // a 最多取到 max-1；剩下的空间要够放 b，否则 nextInt 的 bound 会小于 origin 直接崩
+            if (aMin >= max) break
             a = rnd.nextInt(aMin, max)
-            b = rnd.nextInt(bMin, max - a + 1)
+            val room = max - a
+            if (room < 1) continue
+            val bLo = if (bMin in 1..room) bMin else min
+            if (bLo > room) continue
+            b = rnd.nextInt(bLo, room + 1)
             val carry = (a % 10) + (b % 10) >= 10
             val ok = when (stage.carry) {
                 CarryRule.ANY -> true
@@ -206,7 +212,9 @@ object Generator {
         var b = 1
         var tries = 0
         while (tries++ < 400) {
+            if (lo > max) break
             a = rnd.nextInt(lo, max + 1)
+            if (a <= min) continue
             b = rnd.nextInt(min, a)
             val borrow = (a % 10) < (b % 10)
             val ok = when (stage.carry) {

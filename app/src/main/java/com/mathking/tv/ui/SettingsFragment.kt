@@ -42,6 +42,10 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         bind(b.rowSpeak) { toggleSpeak() }
         bind(b.rowUnlock) { toggleUnlock() }
         bind(b.rowClear) { clearData() }
+        b.btnAbout.setOnClickListener { showAbout() }
+        b.btnAbout.setOnFocusChangeListener { _, has ->
+            if (has) b.tvTip.text = "版本信息 · 数据保存在本机，换机器前记得备份"
+        }
 
         // 焦点走到哪一行就说哪一行的说明，否则会一直挂着上一次操作的提示
         listOf(
@@ -67,6 +71,23 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     /** 点击 = 往前切一步；左右键 = 前后切 */
+    /** 关于：品牌说明 + 数据备份提示（本地存储，换机/重装会丢） */
+    private fun showAbout() {
+        val dialog = android.app.Dialog(requireContext(), R.style.Theme_MathKing_Dialog)
+        dialog.setContentView(R.layout.dialog_about)
+        dialog.findViewById<View>(R.id.btnAboutClose)?.apply {
+            setOnClickListener { dialog.dismiss() }
+            requestFocus()
+        }
+        dialog.setOnShowListener {
+            dialog.window?.setLayout(
+                (660 * resources.displayMetrics.density).toInt(),
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        dialog.show()
+    }
+
     private fun bind(row: View, onChange: (Int) -> Unit) {
         row.setOnClickListener { onChange(1) }
         row.setOnKeyListener { _, keyCode, event ->
