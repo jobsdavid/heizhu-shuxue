@@ -206,7 +206,11 @@ class Repo(context: Context) {
 
     // ------------------------------------------------------------ 统计
 
-    fun overall(stageId: String? = null, excludeChallenge: Boolean = true): Overall {
+    fun overall(
+        stageId: String? = null,
+        excludeChallenge: Boolean = true,
+        excludeWrongBook: Boolean = false
+    ): Overall {
         val conds = mutableListOf("finished=1")
         val args = mutableListOf<String>()
         if (stageId != null) {
@@ -215,6 +219,8 @@ class Repo(context: Context) {
         }
         // 挑战是抢时间，正确率天然偏低，混进算力会失真，所以默认排除
         if (excludeChallenge) conds.add("mode != 'challenge'")
+        // 解锁判定用：错题重练反复刷同一批题，正确率虚高，不该拿来解锁下一阶段
+        if (excludeWrongBook) conds.add("mode != 'wrongbook'")
         val where = "WHERE " + conds.joinToString(" AND ")
         helper.readableDatabase.rawQuery(
             "SELECT COUNT(*), IFNULL(SUM(total),0), IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0) FROM session $where",

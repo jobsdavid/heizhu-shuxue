@@ -525,7 +525,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         val e = engine ?: return
         val summary = e.summary(finishedOk)
         app.repo.async({
-            val overall = app.repo.overall(stage.id)
+            // 解锁进度只认「正常练习 / 限时 / 考试 / 每日挑战」，错题重练不算
+            val overall = app.repo.overall(stage.id, excludeWrongBook = true)
             val totalQuestions = overall.questions + summary.total
             val totalCorrect = overall.correct + summary.correctFirst
             val totalAccuracy = if (totalQuestions == 0) 0.0 else totalCorrect * 100.0 / totalQuestions
