@@ -11,7 +11,7 @@ import com.mathking.tv.util.Ui
 /** 数字键盘构造器，练习页和挑战页共用 */
 object KeypadBuilder {
 
-    val KEYS = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓")
+    private val KEYS = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓")
 
     fun build(grid: GridLayout, bottomFocusId: Int = 0, onKey: (String) -> Unit) {
         val ctx = grid.context

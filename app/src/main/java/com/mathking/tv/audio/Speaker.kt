@@ -85,8 +85,6 @@ class Speaker(context: Context) {
         }
     }
 
-    fun hasChinese(): Boolean = usePack || (ready && langOk)
-
     fun shutdown() {
         stop()
         try {

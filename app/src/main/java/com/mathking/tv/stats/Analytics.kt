@@ -50,23 +50,4 @@ object Analytics {
         power >= 300 -> Rank("数学小将", "⭐", R.color.accent, 450.0)
         else -> Rank("数学小学徒", "🐣", R.color.text_dim, 300.0)
     }
-
-    /** 尾部滑动平均，用来把每天的正确率曲线抹平，避免一天波动吓到娃 */
-    fun rolling(values: List<Double>, window: Int = 7): List<Double> {
-        if (values.isEmpty()) return emptyList()
-        val out = ArrayList<Double>(values.size)
-        for (i in values.indices) {
-            val from = max(0, i - window + 1)
-            var sum = 0.0
-            var count = 0
-            for (j in from..i) {
-                if (values[j] > 0) {
-                    sum += values[j]
-                    count++
-                }
-            }
-            out.add(if (count == 0) 0.0 else sum / count)
-        }
-        return out
-    }
 }

@@ -39,9 +39,6 @@ class SessionEngine(
     var combo: Int = 0
         private set
 
-    var maxCombo: Int = 0
-        private set
-
     val records = mutableListOf<AttemptRecord>()
 
     private var attemptCount = 0
@@ -90,7 +87,6 @@ class SessionEngine(
             if (first) {
                 correctFirst++
                 combo++
-                maxCombo = maxOf(maxCombo, combo)
             } else {
                 combo = 0
                 // 练习模式里第一次没答对，也要进错题本

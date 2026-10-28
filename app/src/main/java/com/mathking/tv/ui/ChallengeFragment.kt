@@ -118,6 +118,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
                 b.tvCountdown.text = ""
                 b.progressComputer.visibility = View.GONE
                 b.tvAnswer.visibility = View.GONE
+                b.keypad.visibility = View.GONE
                 return@async
             }
             baselineMs = (best * 0.8).toLong().coerceIn(1200L, 20000L)

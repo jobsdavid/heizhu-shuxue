@@ -32,8 +32,6 @@ object Sfx {
 
     fun tick() = play(listOf(1400.0 to 35))
 
-    fun start() = play(listOf(523.25 to 70, 659.25 to 70, 783.99 to 110))
-
     fun finish() = play(listOf(523.25 to 90, 659.25 to 90, 783.99 to 90, 1046.5 to 180))
 
     fun levelUp() = play(listOf(783.99 to 80, 987.77 to 80, 1174.66 to 80, 1567.98 to 220))

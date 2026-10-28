@@ -2,7 +2,6 @@ package com.mathking.tv.util
 
 import android.content.Context
 import android.view.View
-import android.widget.TextView
 import androidx.core.content.ContextCompat
 
 object Ui {
@@ -24,8 +23,4 @@ object Ui {
     }
 
     fun color(context: Context, res: Int): Int = ContextCompat.getColor(context, res)
-
-    fun setTextColor(view: TextView, colorRes: Int) {
-        view.setTextColor(ContextCompat.getColor(view.context, colorRes))
-    }
 }

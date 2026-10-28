@@ -33,6 +33,7 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         b.btnAchievements.setOnClickListener {
             (activity as? com.mathking.tv.MainActivity)?.navigate(AchievementsFragment())
         }
+        b.btnAchievements.requestFocus()
         load()
     }
 

@@ -291,17 +291,7 @@ class Repo(context: Context) {
         return list
     }
 
-    fun recentSessions(limit: Int = 10): List<Pair<Long, Double>> {
-        val list = mutableListOf<Pair<Long, Double>>()
-        helper.readableDatabase.rawQuery(
-            "SELECT started_at, score FROM session WHERE finished=1 ORDER BY started_at DESC LIMIT ?",
-            arrayOf(limit.toString())
-        ).use { c ->
-            while (c.moveToNext()) list.add(c.getLong(0) to c.getDouble(1))
-        }
-        return list.reversed()
-    }
-
+    
     /**
      * 挑战模式的基准：该阶段「正确率 ≥ 80% 且至少 5 题」的场次里，
      * 平均每题用时最快的一次（毫秒）。没有达标记录就返回 null，挑战模式不解锁。
@@ -324,13 +314,7 @@ class Repo(context: Context) {
         return null
     }
 
-    fun bestScore(stageId: String): Double {
-        helper.readableDatabase.rawQuery(
-            "SELECT IFNULL(MAX(score),0) FROM session WHERE finished=1 AND stage_id=?",
-            arrayOf(stageId)
-        ).use { c -> return if (c.moveToFirst()) c.getDouble(0) else 0.0 }
-    }
-
+    
     // ------------------------------------------------------------ 成就用的聚合
 
     fun perfectSessionCount(): Int = singleInt(

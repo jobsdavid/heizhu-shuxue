@@ -29,8 +29,6 @@ enum class PlayMode(val id: String, val label: String) {
     WRONG("wrongbook", "错题重练"),
     CHALLENGE("challenge", "挑战电脑");
 
-    val advancedOnly: Boolean get() = this == TIMED || this == EXAM
-
     companion object {
         fun of(id: String?): PlayMode = entries.firstOrNull { it.id == id } ?: PRACTICE
     }

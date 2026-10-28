@@ -338,7 +338,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         updateAnswer()
         b.tvFeedback.text = "时间到，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-        nextOrFinish(modeDelay(700))
+        nextOrFinish(700)
     }
 
     private fun submitAnswer() {
@@ -368,7 +368,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 b.tvFeedback.text = "回答正确！"
             }
             b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
-            nextOrFinish(modeDelay(950))
+            nextOrFinish(950)
         } else if (result.retry) {
             Sfx.wrong()
             sayFeedback("回答错误")
@@ -383,12 +383,9 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             b.tvFeedback.text =
                 if (result.timedOut) "时间到，下一题" else "回答错误，正确答案是 ${result.question.answerText}"
             b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-            nextOrFinish(modeDelay(1200))
+            nextOrFinish(1200)
         }
     }
-
-    /** 考试模式节奏更快，限时模式留出看答案的时间 */
-    private fun modeDelay(normal: Long): Long = normal
 
     private fun nextOrFinish(delay: Long) {
         val e = engine ?: return

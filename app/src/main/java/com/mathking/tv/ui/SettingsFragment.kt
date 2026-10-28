@@ -110,6 +110,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         val next = ((cur + step) % options.size + options.size) % options.size
         app.settings.questionCount = options[next]
         refresh()
+        b.tvTip.text = "考试固定 20 题、每日挑战固定 10 题，这里只影响练习和挑战电脑"
     }
 
     private fun changeMode(step: Int) {
