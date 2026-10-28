@@ -80,20 +80,35 @@
             android:textSize="17sp" />
 
         <TextView
-            android:id="@+id/btnDone"
+            android:id="@+id/btnQr"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="14dp"
             android:layout_weight="1"
-            android:background="@drawable/selector_card"
+            android:background="@drawable/selector_key"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center"
             android:paddingTop="12dp"
             android:paddingBottom="12dp"
-            android:text="好啦"
+            android:text="手机扫码填"
             android:textColor="@color/accent"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+            android:textSize="17sp" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/btnDone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/selector_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center"
+        android:paddingTop="11dp"
+        android:paddingBottom="11dp"
+        android:text="好啦"
+        android:textColor="@color/accent"
+        android:textSize="17sp"
+        android:textStyle="bold" />
 </LinearLayout>

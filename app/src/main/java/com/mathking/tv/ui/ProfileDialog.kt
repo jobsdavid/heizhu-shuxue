@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.mathking.tv.App
 import com.mathking.tv.R
+import com.mathking.tv.data.ProfilePresets
 
 /** 「我的资料」：换头像、改名字（预设昵称 + 屏幕字母键盘自定义） */
 class ProfileDialog(
@@ -21,17 +22,8 @@ class ProfileDialog(
 
     private val app = App.of(activity)
 
-    private val avatars = listOf(
-        "🐷", "🐯", "🐻", "🐼", "🦊", "🐸",
-        "🐵", "🦁", "🐨", "🐰", "🐶", "🐱"
-    )
-
-    private val names = listOf(
-        "小虎", "豆豆", "乐乐", "天天", "果果", "糖糖",
-        "毛毛", "皮皮", "小美", "小帅", "妞妞", "壮壮",
-        "多多", "安安", "贝贝", "晨晨", "彤彤", "轩轩",
-        "涵涵", "小雨", "闪闪", "星星", "小鱼", "大王"
-    )
+    private val avatars = ProfilePresets.avatars
+    private val names = ProfilePresets.names
 
     private var avatar = app.settings.avatar
     private var name = app.settings.userName
@@ -53,6 +45,15 @@ class ProfileDialog(
         buildNames()
 
         dialog.findViewById<View>(R.id.btnCustomName)?.setOnClickListener { showNameInput(dialog) }
+        dialog.findViewById<View>(R.id.btnQr)?.setOnClickListener {
+            ProfileQrDialog(activity) {
+                avatar = app.settings.avatar
+                name = app.settings.userName
+                refreshAvatarSelection()
+                refreshNameSelection()
+                refreshPreview()
+            }.show()
+        }
         dialog.findViewById<View>(R.id.btnDone)?.setOnClickListener { dialog.dismiss() }
         dialog.setOnDismissListener { onChanged() }
 
