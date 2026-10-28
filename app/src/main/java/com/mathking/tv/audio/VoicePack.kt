@@ -2,26 +2,31 @@ package com.mathking.tv.audio
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.MediaPlayer
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.media.PlaybackParams
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 
 /**
- * 内置语音包：电视上基本都没有中文 TTS 引擎（实测小米电视 tts_default_synth 为空），
- * 所以用 assets 里的单字/短语音频拼读题目，不依赖系统语音、不依赖网络。
+ * 内置语音包（PCM 拼接版）。
  *
- * 两个关键点：
- * 1. 变速必须在 prepare() 之后设置，否则部分电视会抛异常（表现为「有播放器但没声音」）
- * 2. 拼读不是匀速念：运算符前停一下、等于几前停得更久，数字之间尽量连读
+ * 之前每个字用一个 MediaPlayer，字与字之间被「release + prepare + start」的启动延迟
+ * 硬生生隔开 50~120ms，「四十四」听起来是「四 十 四」。现在改成：
+ *   直接把 assets 里的裸 PCM（22050Hz 单声道 16bit）拼成一整段，
+ *   数字之间零间隙，只有一个 AudioTrack 在播，变速也由它一次完成。
+ *
+ * 停顿只保留在需要的地方：运算符前、等于几前。
  */
 class VoicePack(context: Context) {
 
     private val appContext = context.applicationContext
     private val handler = Handler(Looper.getMainLooper())
+    private val pcmCache = HashMap<String, ShortArray>()
 
-    private data class Token(val text: String, val speed: Float, val gapBeforeMs: Int)
+    private var track: AudioTrack? = null
+    private var releaseTask: Runnable? = null
 
     private val fileOf = mapOf(
         "零" to "ling", "一" to "yi", "二" to "er", "三" to "san", "四" to "si",
@@ -41,13 +46,9 @@ class VoicePack(context: Context) {
 
     private val ops = setOf("加", "减", "乘", "除以", "等于几", "分之")
 
-    private val queue = ArrayDeque<Token>()
-    private var current: MediaPlayer? = null
-    private var pending: Runnable? = null
-
     val available: Boolean by lazy {
         try {
-            (appContext.assets.list("voice")?.size ?: 0) > 10
+            (appContext.assets.list("voice/raw")?.size ?: 0) > 10
         } catch (_: Throwable) {
             false
         }
@@ -58,19 +59,21 @@ class VoicePack(context: Context) {
         stop()
         val tokens = tokensOf(text)
         if (tokens.isEmpty()) return
-        tokens.forEachIndexed { i, t ->
-            queue.addLast(Token(t, speed, gapBefore(tokens, i)))
-        }
-        playNext()
+        val buf = buildPcm(tokens)
+        if (buf.isEmpty()) return
+        play(buf, speed)
     }
 
     fun stop() {
-        queue.clear()
-        pending?.let { handler.removeCallbacks(it) }
-        pending = null
-        current?.let {
+        releaseTask?.let { handler.removeCallbacks(it) }
+        releaseTask = null
+        track?.let {
             try {
-                it.stop()
+                it.pause()
+            } catch (_: Throwable) {
+            }
+            try {
+                it.flush()
             } catch (_: Throwable) {
             }
             try {
@@ -78,84 +81,120 @@ class VoicePack(context: Context) {
             } catch (_: Throwable) {
             }
         }
-        current = null
+        track = null
     }
 
-    /** 停顿设计：运算符前后各留一口气，等于几之前停得更明显，数字之间尽量连读 */
+    // ------------------------------------------------------------ 拼 PCM
+
+    private fun buildPcm(tokens: List<String>): ShortArray {
+        val parts = ArrayList<ShortArray>(tokens.size * 2)
+        var total = 0
+        tokens.forEachIndexed { i, token ->
+            val gap = gapBefore(tokens, i)
+            if (gap > 0) {
+                val silence = ShortArray(RATE * gap / 1000)
+                parts.add(silence)
+                total += silence.size
+            }
+            val pcm = pcmOf(token)
+            if (pcm != null) {
+                parts.add(pcm)
+                total += pcm.size
+            }
+        }
+        val out = ShortArray(total)
+        var pos = 0
+        for (part in parts) {
+            System.arraycopy(part, 0, out, pos, part.size)
+            pos += part.size
+        }
+        return out
+    }
+
+    /** 只有符号前、等于几前停顿；数字之间完全连读 */
     private fun gapBefore(tokens: List<String>, i: Int): Int {
         val t = tokens[i]
         val prev = tokens.getOrNull(i - 1)
         return when {
-            // 符号前明显停顿，让孩子听清「这是加还是减」
-            t in ops -> 260
-            t == "这道题有错误" -> 220
+            t in ops -> 200
+            t == "这道题有错误" -> 200
             t == "回答正确" || t == "回答错误" || t == "再算一遍" || t == "时间到" -> 0
-            // 符号后面给一小口气，再读数字
-            prev in ops -> 90
+            prev in ops -> 55
             else -> 0
         }
     }
 
-    private fun playNext() {
-        val item = queue.removeFirstOrNull() ?: return
-        if (item.gapBeforeMs > 0) {
-            val runnable = Runnable { startToken(item) }
-            pending = runnable
-            handler.postDelayed(runnable, item.gapBeforeMs.toLong())
-        } else {
-            startToken(item)
+    private fun pcmOf(token: String): ShortArray? {
+        val file = fileOf[token] ?: return null
+        pcmCache[file]?.let { return it }
+        return try {
+            val bytes = appContext.assets.open("voice/raw/$file.raw").readBytes()
+            val out = ShortArray(bytes.size / 2)
+            for (i in out.indices) {
+                val lo = bytes[i * 2].toInt() and 0xFF
+                val hi = bytes[i * 2 + 1].toInt() and 0xFF
+                out[i] = ((hi shl 8) or lo).toShort()
+            }
+            pcmCache[file] = out
+            out
+        } catch (t: Throwable) {
+            Log.w("VoicePack", "load $file failed: ${t.message}")
+            null
         }
     }
 
-    private fun startToken(item: Token) {
-        val file = fileOf[item.text] ?: return playNext()
+    // ------------------------------------------------------------ 播放
+
+    private fun play(buf: ShortArray, speed: Float) {
+        val rate = speed.coerceIn(0.5f, 2.0f)
         try {
-            val afd = appContext.assets.openFd("voice/$file.mp3")
-            val mp = MediaPlayer()
-            mp.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build()
-            )
-            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
-            mp.setVolume(1f, 1f)
-            mp.setOnCompletionListener { p ->
-                try {
-                    p.release()
-                } catch (_: Throwable) {
-                }
-                if (current === p) current = null
-                playNext()
-            }
-            mp.setOnErrorListener { p, what, extra ->
-                Log.w("VoicePack", "error what=$what extra=$extra file=$file")
-                try {
-                    p.release()
-                } catch (_: Throwable) {
-                }
-                if (current === p) current = null
-                playNext()
-                true
-            }
-            mp.prepare()
-            // 变速只能在 prepare 之后设置，提前设置会抛异常导致整句静默跳过
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build()
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(RATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                )
+                .setBufferSizeInBytes(buf.size * 2)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .build()
+            track.write(buf, 0, buf.size)
             try {
-                mp.playbackParams = PlaybackParams().setSpeed(item.speed).setPitch(1f)
+                track.playbackParams = PlaybackParams().setSpeed(rate).setPitch(1f)
             } catch (t: Throwable) {
                 Log.w("VoicePack", "speed not supported: ${t.message}")
             }
-            mp.start()
-            current = mp
-            Log.i("VoicePack", "play $file x${item.speed} gap=${item.gapBeforeMs}")
+            track.play()
+            this.track = track
+            val durMs = (buf.size * 1000L / RATE / rate).toLong()
+            Log.i("VoicePack", "play ${buf.size} samples ${durMs}ms x$rate")
+            val task = Runnable {
+                try {
+                    track.stop()
+                } catch (_: Throwable) {
+                }
+                try {
+                    track.release()
+                } catch (_: Throwable) {
+                }
+                if (this.track === track) this.track = null
+            }
+            releaseTask = task
+            handler.postDelayed(task, durMs + 120)
         } catch (t: Throwable) {
-            Log.w("VoicePack", "cannot play $file: ${t.message}")
-            playNext()
+            Log.w("VoicePack", "play failed: ${t.message}")
         }
     }
 
-    /** 把「三十八 加 九 等于几」拆成音频片段 */
+    // ------------------------------------------------------------ 分词
+
     private fun tokensOf(text: String): List<String> {
         val out = ArrayList<String>()
         var i = 0
@@ -182,5 +221,9 @@ class VoicePack(context: Context) {
             i++
         }
         return out
+    }
+
+    companion object {
+        private const val RATE = 22050
     }
 }

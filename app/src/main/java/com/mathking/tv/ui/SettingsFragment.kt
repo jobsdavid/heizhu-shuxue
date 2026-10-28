@@ -77,9 +77,9 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         }
         b.tvStyle.text = QuestionStyle.of(app.settings.questionStyle).label
         b.tvSpeed.text = when {
-            app.settings.speechScale < 1.05f -> "慢"
-            app.settings.speechScale < 1.25f -> "正常"
-            app.settings.speechScale < 1.45f -> "快"
+            app.settings.speechScale < 1.15f -> "慢"
+            app.settings.speechScale < 1.45f -> "正常"
+            app.settings.speechScale < 1.7f -> "快"
             else -> "超快"
         }
         b.tvSound.text = if (app.settings.soundOn) "开" else "关"
@@ -139,7 +139,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun changeSpeed(step: Int) {
-        val options = listOf(0.95f, 1.15f, 1.35f, 1.6f)
+        val options = listOf(1.05f, 1.3f, 1.55f, 1.85f)
         val cur = options.indexOfFirst { kotlin.math.abs(it - app.settings.speechScale) < 0.01f }
             .let { if (it < 0) 1 else it }
         val next = ((cur + step) % options.size + options.size) % options.size
