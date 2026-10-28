@@ -146,7 +146,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
             b.tvDailyAction.text = if (data.daily?.full == true) "明天再来" else "去挑战 ›"
 
-            challengePace = data.bestPaceMs?.let { (it * 0.8).toLong().coerceIn(1200L, 20000L) }
+            val minMs = stage.targetSeconds * 500L
+            challengePace = data.bestPaceMs?.let { (it * 0.8).toLong().coerceIn(minMs, 20000L) }
             b.tvChallengeInfo.text = challengePace?.let {
                 "对手 ${String.format("%.1f", it / 1000.0)} 秒/题"
             } ?: "全对一轮才解锁"

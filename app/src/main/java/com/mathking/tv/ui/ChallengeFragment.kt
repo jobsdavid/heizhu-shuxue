@@ -120,7 +120,9 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
                 b.keypad.visibility = View.GONE
                 return@async
             }
-            baselineMs = (best * 0.8).toLong().coerceIn(1200L, 20000L)
+            // 下限按阶段目标秒数的一半：孩子快到极限时，电脑不至于变成「物理上不可能」
+            val minMs = stage.targetSeconds * 500L
+            baselineMs = (best * 0.8).toLong().coerceIn(minMs, 20000L)
             b.tvPace.text = "电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题"
             buildQuestions()
             openSession()
