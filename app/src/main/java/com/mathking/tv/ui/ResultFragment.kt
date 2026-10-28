@@ -78,9 +78,15 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
             b.wrongScroll.visibility = View.VISIBLE
             val density = resources.displayMetrics.density
             wrong.take(6).forEachIndexed { i, a ->
+                val q = a.question
+                val mine = when {
+                    a.userAnswer == null -> "—"
+                    q.answerDen > 0 -> "${a.userAnswer}/${q.answerDen}"
+                    else -> a.userAnswer.toString()
+                }
                 val tv = TextView(requireContext()).apply {
-                    text = "${i + 1}. ${a.question.text} = ${a.question.answerText}" +
-                        "    你答的是 ${a.userAnswer ?: "—"}" +
+                    text = "${i + 1}. ${q.text} = ${q.answerText}" +
+                        "    你答的是 $mine" +
                         if (a.timedOut) "（超时）" else ""
                     setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
                     setTextColor(Ui.color(requireContext(), R.color.text))

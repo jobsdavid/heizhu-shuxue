@@ -39,6 +39,24 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         bind(b.rowUnlock) { toggleUnlock() }
         bind(b.rowClear) { clearData() }
 
+        // 焦点走到哪一行就说哪一行的说明，否则会一直挂着上一次操作的提示
+        listOf(
+            b.rowProfile to "点开可以改名字和头像",
+            b.rowStage to "左右切换学习阶段，按成绩一步步解锁",
+            b.rowCount to "每轮出几道题（考试固定 20 题）",
+            b.rowMode to "练习卡用哪种方式：不限时 / 限时",
+            b.rowStyle to "出什么题：计算 / 找错 / 填空 / 混着来",
+            b.rowSpeed to "朗读速度，左右切换会试听",
+            b.rowSound to "答对答错的提示音",
+            b.rowSpeak to "是否自动朗读题目",
+            b.rowUnlock to "家长开关：一键解锁全部阶段",
+            b.rowClear to "清空练习记录和错题，不可恢复"
+        ).forEach { (row, hint) ->
+            row.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) b.tvTip.text = hint
+            }
+        }
+
         b.tvTip.text = "方向键选择 · OK 确认或切换 · 返回键回首页"
         refresh()
         b.rowStage.requestFocus()
@@ -127,7 +145,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     }
 
     private fun changeStyle(step: Int) {
-        val options = listOf(QuestionStyle.CALC, QuestionStyle.MIX, QuestionStyle.FIND)
+        val options = listOf(QuestionStyle.CALC, QuestionStyle.MIX, QuestionStyle.FIND, QuestionStyle.FILL)
         val cur = options.indexOf(QuestionStyle.of(app.settings.questionStyle)).let { if (it < 0) 1 else it }
         val next = ((cur + step) % options.size + options.size) % options.size
         app.settings.questionStyle = options[next].id
@@ -136,6 +154,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             QuestionStyle.CALC -> "只出普通计算题"
             QuestionStyle.MIX -> "大部分是计算题，约三成是「这题算错了」的找错题"
             QuestionStyle.FIND -> "每题都给一个算错的式子，让娃找出正确答案"
+            QuestionStyle.FILL -> "把算式里的一个数挖掉，让娃填回来（求括号里的数）"
         }
     }
 

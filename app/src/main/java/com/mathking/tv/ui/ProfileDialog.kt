@@ -75,6 +75,8 @@ class ProfileDialog(
                 setOnClickListener {
                     avatar = emoji
                     app.settings.avatar = emoji
+                    // 选回表情头像 = 放弃自定义照片，两者只能有一个生效
+                    app.settings.avatarImage = ""
                     refreshAvatarSelection()
                     refreshPreview()
                 }
@@ -116,12 +118,14 @@ class ProfileDialog(
             val v = grid.getChildAt(i) as TextView
             v.background = ContextCompat.getDrawable(
                 activity,
-                if (v.text.toString() == avatar) R.drawable.bg_key_focus else R.drawable.selector_key
+                if (v.text.toString() == avatar && app.settings.avatarImage.isBlank())
+                    R.drawable.bg_key_focus else R.drawable.selector_key
             )
             v.setTextColor(
                 ContextCompat.getColor(
                     activity,
-                    if (v.text.toString() == avatar) R.color.bg else R.color.text
+                    if (v.text.toString() == avatar && app.settings.avatarImage.isBlank())
+                        R.color.bg else R.color.text
                 )
             )
         }

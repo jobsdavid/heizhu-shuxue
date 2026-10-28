@@ -3,32 +3,70 @@ package com.mathking.tv.data
 import kotlin.random.Random
 
 /**
- * 出题器：按阶段生成题目，并给出知识点标签（用于统计）和朗读文本（给 TTS）。
+ * 出题器。按 StageKind 分流，再按 QuestionStyle 变形（找错 / 填空）。
+ *
+ * 三条硬约束：
+ * 1. 结果永远是非负整数（分数题例外：答案是分子，分母由题目固定）；
+ * 2. 同一个阶段内，进位/退位、数域都由 StageConfig 决定，不在出题时随机放宽；
+ * 3. 分数题的答案只填分子，分母写成固定值（如 = ?/5），这样数字键盘就能答。
  */
 object Generator {
+
+    /** 变形方式 */
+    private enum class Shape { CALC, FIND, FILL }
 
     fun make(
         stage: StageConfig,
         style: QuestionStyle = QuestionStyle.CALC,
         rnd: Random = Random.Default
     ): Question {
-        val base = if (stage.fraction) fraction(stage, rnd) else integer(stage, rnd)
-        val wantFind = when (style) {
-            QuestionStyle.CALC -> false
-            QuestionStyle.FIND -> true
-            QuestionStyle.MIX -> rnd.nextInt(100) < 30
+        val base = when (stage.kind) {
+            StageKind.ADD_SUB -> addSub(stage, rnd)
+            StageKind.MUL -> mul(stage, rnd)
+            StageKind.DIV -> div(stage, rnd)
+            StageKind.MUL_DIV -> if (rnd.nextBoolean()) mul(stage, rnd) else div(stage, rnd)
+            StageKind.FOUR_OPS -> fourOps(stage, rnd)
+            StageKind.FRACTION_SAME -> fractionSame(stage, rnd)
+            StageKind.FRACTION_DIFF -> fractionDiff(stage, rnd)
         }
-        return if (wantFind) toFindError(base, rnd) else base
+        val shape = when (style) {
+            QuestionStyle.CALC -> Shape.CALC
+            QuestionStyle.FIND -> Shape.FIND
+            QuestionStyle.FILL -> Shape.FILL
+            // 混合：计算为主，找错和填空各占一成多
+            QuestionStyle.MIX -> when (rnd.nextInt(10)) {
+                0, 1 -> Shape.FIND
+                2 -> Shape.FILL
+                else -> Shape.CALC
+            }
+        }
+        // 分数题没法填空题（要固定分母），退化成计算
+        val actual = if (stage.fraction && shape == Shape.FILL) Shape.CALC else shape
+        return when (actual) {
+            Shape.CALC -> base
+            Shape.FIND -> toFindError(base, rnd)
+            Shape.FILL -> fill(stage, rnd)
+        }
     }
+
+    // ------------------------------------------------------------ 变形：找错
 
     /** 把一道正常题改造成「找错题」：等号后面故意填一个错答案 */
     private fun toFindError(q: Question, rnd: Random): Question {
-        val wrong = wrongAnswer(q.answer, rnd)
+        val wrong = if (q.answerDen > 0) {
+            // 分数题：只在分子上做手脚，别把分母改掉（那样错得太离谱）
+            val pool = listOf(q.answer + 1, q.answer - 1, q.answer + 2)
+                .filter { it > 0 && it < q.answerDen && it != q.answer }
+            if (pool.isEmpty()) q.answer + 1 else pool.random(rnd)
+        } else {
+            wrongAnswer(q.answer, rnd)
+        }
+        val wrongText = if (q.answerDen > 0) "$wrong/${q.answerDen}" else wrong.toString()
         val stem = q.speak.removeSuffix("等于几").trim()
         return q.copy(
-            text = "${q.text} = $wrong",
+            text = "${q.text} = $wrongText",
             tag = "找错·${q.tag}",
-            speak = "$stem 等于 ${cn(wrong)} 这道题有错误 正确答案是几",
+            speak = if (q.speak.isBlank()) "" else "$stem 等于 ${cn(wrong)} 这道题有错误 正确答案是几",
             findError = true,
             hint = "这道题有错误，重新算一遍，填正确答案"
         )
@@ -49,104 +87,291 @@ object Generator {
         return pool.random(rnd)
     }
 
-    // ---------------------------------------------------------------- 整数题
+    // ------------------------------------------------------------ 变形：填空
 
-    private fun integer(stage: StageConfig, rnd: Random): Question {
+    /**
+     * 填空：把算式里的一个数挖掉，孩子填这个数（小学低年级叫「求括号里的数」）。
+     * 只对整数阶段生效，分数阶段在 make() 里已经被挡掉了。
+     */
+    private fun fill(stage: StageConfig, rnd: Random): Question {
         val op = stage.ops[rnd.nextInt(stage.ops.size)]
-        return when (op) {
-            Op.ADD -> add(stage.maxValue, rnd)
-            Op.SUB -> sub(stage.maxValue, rnd)
-            Op.MUL -> mul(rnd)
-            Op.DIV -> div(rnd)
+        val (a, b, c) = triple(stage, op, rnd)
+        val blankFirst = rnd.nextBoolean()
+        return if (blankFirst) {
+            Question(
+                text = "□ ${op.symbol} $b = $c",
+                answer = a,
+                tag = "填空·${op.symbol}",
+                speak = "括号里填几：括号 ${op.speak} ${cn(b)} 等于 ${cn(c)}",
+                hint = if (op == Op.ADD || op == Op.MUL) "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(b)}"
+                else "倒着想：${cn(c)} 加 ${cn(b)}"
+            )
+        } else {
+            Question(
+                text = "$a ${op.symbol} □ = $c",
+                answer = b,
+                tag = "填空·${op.symbol}",
+                speak = "括号里填几：${cn(a)} ${op.speak} 括号 等于 ${cn(c)}",
+                hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(a)}"
+            )
         }
     }
 
-    private fun add(max: Int, rnd: Random): Question {
-        val a = rnd.nextInt(1, max)            // 1..max-1
-        val b = rnd.nextInt(1, max - a + 1)    // 1..max-a
+    /** 生成 a op b = c 的三元组，供填空复用 */
+    private fun triple(stage: StageConfig, op: Op, rnd: Random): Triple<Int, Int, Int> {
+        return when (op) {
+            Op.ADD -> {
+                val a = rnd.nextInt(1, stage.maxValue)
+                val b = rnd.nextInt(1, stage.maxValue - a + 1)
+                Triple(a, b, a + b)
+            }
+            Op.SUB -> {
+                val a = rnd.nextInt(2, stage.maxValue + 1)
+                val b = rnd.nextInt(1, a)
+                Triple(a, b, a - b)
+            }
+            Op.MUL -> {
+                val a = rnd.nextInt(2, 10)
+                val b = rnd.nextInt(2, 10)
+                Triple(a, b, a * b)
+            }
+            Op.DIV -> {
+                val b = rnd.nextInt(2, 10)
+                val q = rnd.nextInt(2, 10)
+                Triple(b * q, b, q)
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ 加减（一体）
+
+    private fun addSub(stage: StageConfig, rnd: Random): Question {
+        val plus = if (stage.ops.size == 1) stage.ops[0] == Op.ADD
+        else if (stage.ops.contains(Op.ADD) && stage.ops.contains(Op.SUB)) rnd.nextBoolean()
+        else stage.ops.contains(Op.ADD)
+        return if (plus) addQ(stage, rnd) else subQ(stage, rnd)
+    }
+
+    private fun addQ(stage: StageConfig, rnd: Random): Question {
+        val max = stage.maxValue
+        val min = stage.minValue.coerceAtLeast(1)
+        var a = min
+        var b = min
+        var tries = 0
+        while (tries++ < 400) {
+            a = rnd.nextInt(min, max)
+            b = rnd.nextInt(min, max - a + 1)
+            val carry = (a % 10) + (b % 10) >= 10
+            val ok = when (stage.carry) {
+                CarryRule.ANY -> true
+                CarryRule.REQUIRE -> carry
+                CarryRule.AVOID -> !carry
+            }
+            if (ok && a + b <= max) break
+        }
         val carry = (a % 10) + (b % 10) >= 10
-        val tag = if (carry) "进位加" else "不进位加"
-        val hint = if (carry) "个位满十，记得进一" else ""
         return Question(
             text = "$a + $b",
             answer = a + b,
-            tag = tag,
+            tag = if (carry) "进位加" else "不进位加",
             speak = "${cn(a)} 加 ${cn(b)} 等于几",
-            hint = hint
+            hint = if (carry) "个位满十，记得向十位进一" else ""
         )
     }
 
-    private fun sub(max: Int, rnd: Random): Question {
-        val a = rnd.nextInt(2, max + 1)        // 2..max
-        val b = rnd.nextInt(1, a)              // 1..a-1
+    private fun subQ(stage: StageConfig, rnd: Random): Question {
+        val max = stage.maxValue
+        val min = stage.minValue.coerceAtLeast(1)
+        var a = max
+        var b = 1
+        var tries = 0
+        while (tries++ < 400) {
+            a = rnd.nextInt(min + 1, max + 1)
+            b = rnd.nextInt(min, a)
+            val borrow = (a % 10) < (b % 10)
+            val ok = when (stage.carry) {
+                CarryRule.ANY -> true
+                CarryRule.REQUIRE -> borrow
+                CarryRule.AVOID -> !borrow
+            }
+            if (ok) break
+        }
         val borrow = (a % 10) < (b % 10)
-        val tag = if (borrow) "退位减" else "不退位减"
-        val hint = if (borrow) "个位不够减，向十位借一" else ""
         return Question(
             text = "$a − $b",
             answer = a - b,
-            tag = tag,
+            tag = if (borrow) "退位减" else "不退位减",
             speak = "${cn(a)} 减 ${cn(b)} 等于几",
-            hint = hint
+            hint = if (borrow) "个位不够减，向十位借一当十" else ""
         )
     }
 
-    private fun mul(rnd: Random): Question {
-        val a = rnd.nextInt(2, 10)
-        val b = rnd.nextInt(2, 10)
-        return Question(
-            text = "$a × $b",
-            answer = a * b,
-            tag = "表内乘",
-            speak = "${cn(a)} 乘 ${cn(b)} 等于几",
-            hint = "想乘法口诀"
-        )
+    // ------------------------------------------------------------ 乘法
+
+    private fun mul(stage: StageConfig, rnd: Random): Question {
+        // 表内乘法（maxValue <= 9）vs 两位数乘一位数
+        return if (stage.maxValue <= 9) {
+            val a = rnd.nextInt(2, 10)
+            val b = rnd.nextInt(2, 10)
+            Question(
+                text = "$a × $b",
+                answer = a * b,
+                tag = "表内乘",
+                speak = "${cn(a)} 乘 ${cn(b)} 等于几",
+                hint = "想乘法口诀"
+            )
+        } else {
+            val a = rnd.nextInt(10, stage.maxValue + 1)
+            val b = rnd.nextInt(2, 10)
+            val tens = a / 10 * 10
+            val ones = a % 10
+            Question(
+                text = "$a × $b",
+                answer = a * b,
+                tag = "两位数乘一位数",
+                speak = "${cn(a)} 乘 ${cn(b)} 等于几",
+                hint = if (ones == 0) "先算 ${tens} × ${b}"
+                else "先算 ${tens} × ${b} = ${tens * b}，再算 ${ones} × ${b} = ${ones * b}"
+            )
+        }
     }
 
-    private fun div(rnd: Random): Question {
-        val b = rnd.nextInt(2, 10)
-        val q = rnd.nextInt(2, 10)
-        return Question(
-            text = "${b * q} ÷ $b",
-            answer = q,
-            tag = "表内除",
-            speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
-            hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}"
-        )
+    // ------------------------------------------------------------ 除法
+
+    private fun div(stage: StageConfig, rnd: Random): Question {
+        return if (stage.maxValue <= 9) {
+            val b = rnd.nextInt(2, 10)
+            val q = rnd.nextInt(2, 10)
+            Question(
+                text = "${b * q} ÷ $b",
+                answer = q,
+                tag = "表内除",
+                speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
+                hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}"
+            )
+        } else {
+            // 三位数 ÷ 一位数，整除
+            val b = rnd.nextInt(2, 10)
+            val qLow = (stage.minValue + b - 1) / b
+            val qHigh = stage.maxValue / b
+            val q = rnd.nextInt(qLow.coerceAtLeast(2), qHigh + 1)
+            Question(
+                text = "${b * q} ÷ $b",
+                answer = q,
+                tag = "三位数除一位数",
+                speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
+                hint = "从最高位开始除，除到哪一位，商就写在哪一位上"
+            )
+        }
     }
 
-    // ---------------------------------------------------------------- 分数题
+    // ------------------------------------------------------------ 四则混合
 
-    /** 同分母分数加减：分母不变，只算分子，答案就是一个整数（分子）。 */
-    private fun fraction(stage: StageConfig, rnd: Random): Question {
-        val d = rnd.nextInt(3, stage.maxValue + 1)
-        val plus = rnd.nextBoolean()
-        return if (plus) {
-            val n1 = rnd.nextInt(1, d - 1)              // 1..d-2
-            val n2 = rnd.nextInt(1, d - n1)             // 1..d-1-n1，保证和仍为真分数
+    private fun fourOps(stage: StageConfig, rnd: Random): Question {
+        return when (stage.ops[rnd.nextInt(stage.ops.size)]) {
+            Op.ADD -> addQ(stage, rnd)
+            Op.SUB -> subQ(stage, rnd)
+            Op.MUL -> {
+                val a = rnd.nextInt(2, 10)
+                val b = rnd.nextInt(2, 10)
+                Question("$a × $b", a * b, "表内乘", speak = "${cn(a)} 乘 ${cn(b)} 等于几", hint = "先背口诀")
+            }
+            Op.DIV -> {
+                val b = rnd.nextInt(2, 10)
+                val q = rnd.nextInt(2, 10)
+                Question(
+                    "${b * q} ÷ $b", q, "表内除",
+                    speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
+                    hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}"
+                )
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ 分数：同分母
+
+    /**
+     * 同分母分数加减：分母不变，分子相加减。
+     * 结果保证是最简真分数（分子 < 分母），答案填分子，分母由题面给出。
+     */
+    private fun fractionSame(stage: StageConfig, rnd: Random): Question {
+        val d = rnd.nextInt(3, stage.maxDen + 1)
+        return if (rnd.nextBoolean()) {
+            val n1 = rnd.nextInt(1, d - 1)
+            val n2 = rnd.nextInt(1, d - n1)
             Question(
                 text = "$n1/$d + $n2/$d",
                 answer = n1 + n2,
                 tag = "同分母加",
                 answerText = "${n1 + n2}/$d",
-                speak = "${cn(d)}分之${cn(n1)} 加 ${cn(d)}分之${cn(n2)} 等于几",
-                hint = "分母不变，分子相加"
+                // 分数不朗读（电视语音包是按整数念的，念分数反而听不懂）
+                speak = "",
+                hint = "分母不变，分子相加：$n1 + $n2 = ?",
+                answerDen = d
             )
         } else {
-            val n1 = rnd.nextInt(2, d)                  // 2..d-1
-            val n2 = rnd.nextInt(1, n1)                 // 1..n1-1
+            val n1 = rnd.nextInt(2, d)
+            val n2 = rnd.nextInt(1, n1)
             Question(
                 text = "$n1/$d − $n2/$d",
                 answer = n1 - n2,
                 tag = "同分母减",
                 answerText = "${n1 - n2}/$d",
-                speak = "${cn(d)}分之${cn(n1)} 减 ${cn(d)}分之${cn(n2)} 等于几",
-                hint = "分母不变，分子相减"
+                speak = "",
+                hint = "分母不变，分子相减：$n1 − $n2 = ?",
+                answerDen = d
             )
         }
     }
 
-    // ---------------------------------------------------------------- 朗读用中文数字
+    // ------------------------------------------------------------ 分数：异分母
+
+    /**
+     * 异分母分数加减，但**只出一个分母是另一个倍数**的题，
+     * 这样通分后的公分母就是较大那个分母，孩子只需要算分子：
+     *   1/2 + 1/4  →  2/4 + 1/4 = 3/4，答案填 3，分母 4 由题面给出。
+     * 这样既练了通分，又不需要在电视上用数字键盘输入分数。
+     */
+    private fun fractionDiff(stage: StageConfig, rnd: Random): Question {
+        val small = rnd.nextInt(2, stage.maxDen / 2 + 1)
+        val k = if (stage.maxDen / small >= 3 && rnd.nextBoolean()) 3 else 2
+        val big = small * k
+        if (big > stage.maxDen) return fractionSame(stage, rnd)
+
+        val n1 = rnd.nextInt(1, small)          // 1..small-1，真分数
+        val n1Big = n1 * k                       // 通分后的分子
+        val plus = rnd.nextBoolean()
+        return if (plus) {
+            val maxN2 = big - n1Big - 1
+            if (maxN2 < 1) return fractionSame(stage, rnd)
+            val n2 = rnd.nextInt(1, maxN2 + 1)
+            Question(
+                text = "$n1/$small + $n2/$big",
+                answer = n1Big + n2,
+                tag = "异分母加",
+                answerText = "${n1Big + n2}/$big",
+                speak = "",
+                hint = "把 $n1/$small 通分成 $n1Big/$big，再算分子 $n1Big + $n2",
+                answerDen = big
+            )
+        } else {
+            val minN2 = 1
+            val maxN2 = n1Big - 1
+            if (maxN2 < minN2) return fractionSame(stage, rnd)
+            val n2 = rnd.nextInt(minN2, maxN2 + 1)
+            Question(
+                text = "$n1/$small − $n2/$big",
+                answer = n1Big - n2,
+                tag = "异分母减",
+                answerText = "${n1Big - n2}/$big",
+                speak = "",
+                hint = "把 $n1/$small 通分成 $n1Big/$big，再算分子 $n1Big − $n2",
+                answerDen = big
+            )
+        }
+    }
+
+    // ------------------------------------------------------------ 朗读用中文数字
 
     fun cn(n: Int): String {
         val digits = "零一二三四五六七八九"
@@ -158,6 +383,11 @@ object Generator {
             val t = n / 10
             val o = n % 10
             return digits[t].toString() + "十" + if (o == 0) "" else digits[o].toString()
+        }
+        if (n < 1000) {
+            val h = n / 100
+            val rest = n % 100
+            return digits[h].toString() + "百" + if (rest == 0) "" else (if (rest < 10) "零" else "") + cn(rest)
         }
         return n.toString()
     }

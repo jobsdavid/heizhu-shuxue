@@ -86,12 +86,12 @@ class WrongBookFragment : Fragment(R.layout.fragment_wrongbook) {
             layoutParams = lp
         }
 
+        val raw = if (item.expr.contains("=")) "${item.expr}（正确答案 ${item.answer}）"
+        else "${item.expr} = ${item.answer}"
         val expr = TextView(ctx).apply {
-            text = if (item.expr.contains("=")) "${item.expr}（正确答案 ${item.answer}）"
-            else "${item.expr} = ${item.answer}"
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            text = com.mathking.tv.ui.text.MathText.spans(raw)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
             setTextColor(Ui.color(ctx, R.color.text))
-            isSingleLine = true
         }
         val lp1 = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         card.addView(expr, lp1)

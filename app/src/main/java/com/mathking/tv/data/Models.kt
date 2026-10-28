@@ -8,7 +8,25 @@ enum class Op(val symbol: String, val speak: String) {
     DIV("÷", "除以")
 }
 
-/** 学习阶段 */
+/** 阶段的题型结构：决定出题器走哪条分支 */
+enum class StageKind {
+    ADD_SUB,        // 加减（一体）
+    MUL,            // 乘法
+    DIV,            // 除法
+    MUL_DIV,        // 乘除混合
+    FOUR_OPS,       // 四则混合
+    FRACTION_SAME,  // 同分母分数加减
+    FRACTION_DIFF   // 异分母分数加减（通分）
+}
+
+/** 进位/退位规则：一年级先练不进位，再专攻进位 */
+enum class CarryRule {
+    ANY,        // 都行
+    REQUIRE,    // 必须进退位
+    AVOID       // 不进位退位
+}
+
+/** 学习阶段：一条配置 = 一个年级台阶 */
 data class StageConfig(
     val id: String,
     val name: String,
@@ -16,10 +34,16 @@ data class StageConfig(
     val maxValue: Int,
     val targetSeconds: Int,
     val weight: Double,
-    val fraction: Boolean = false,
+    val kind: StageKind = StageKind.ADD_SUB,
+    val carry: CarryRule = CarryRule.ANY,
+    val minValue: Int = 1,
+    /** 分数阶段的分母上限（kind 为分数时生效） */
+    val maxDen: Int = 10,
     val tip: String = "",
     val available: Boolean = true
-)
+) {
+    val fraction: Boolean get() = kind == StageKind.FRACTION_SAME || kind == StageKind.FRACTION_DIFF
+}
 
 /** 玩法 */
 enum class PlayMode(val id: String, val label: String) {
@@ -43,14 +67,17 @@ data class Question(
     val speak: String = "",
     val hint: String = "",
     /** true = 找错题：题面是一个算错的式子，要填正确答案 */
-    val findError: Boolean = false
+    val findError: Boolean = false,
+    /** >0 表示答案是分数：孩子只填分子，分母固定显示（如 4 → 答案框显示 ?/4） */
+    val answerDen: Int = 0
 )
 
-/** 题型：正常计算 / 计算+找错 / 只找错 */
+/** 题型：计算 / 找错 / 填空（求括号里的数） / 混合 */
 enum class QuestionStyle(val id: String, val label: String) {
     CALC("calc", "只做计算"),
-    MIX("mix", "计算 + 找错"),
-    FIND("find", "只找错题");
+    FIND("find", "只找错题"),
+    FILL("fill", "只做填空"),
+    MIX("mix", "全都来一点");
 
     companion object {
         fun of(id: String?): QuestionStyle = entries.firstOrNull { it.id == id } ?: MIX

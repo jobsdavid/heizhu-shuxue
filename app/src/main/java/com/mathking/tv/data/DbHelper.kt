@@ -102,6 +102,15 @@ class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_V
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE wrong_item ADD COLUMN tag TEXT NOT NULL DEFAULT '错题'")
         }
+        if (oldVersion < 4) {
+            // 阶段体系重构（2026-10）：旧 s8/s9/s10 换了位置，历史记录跟着搬。
+            // 从大到小改，避免搬完又被下一条重复搬走。
+            for ((from, to) in StageCatalog.legacyRemap.entries.sortedByDescending { it.key }) {
+                db.execSQL("UPDATE session SET stage_id=? WHERE stage_id=?", arrayOf(to, from))
+                db.execSQL("UPDATE wrong_item SET stage_id=? WHERE stage_id=?", arrayOf(to, from))
+                db.execSQL("UPDATE daily SET stage_id=? WHERE stage_id=?", arrayOf(to, from))
+            }
+        }
         if (oldVersion < 3) {
             db.execSQL(
                 """
@@ -119,6 +128,6 @@ class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_V
 
     companion object {
         const val DB_NAME = "mathking.db"
-        const val DB_VERSION = 3
+        const val DB_VERSION = 4
     }
 }

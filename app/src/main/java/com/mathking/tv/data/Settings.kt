@@ -10,6 +10,18 @@ class Settings(context: Context) {
     private val sp: SharedPreferences =
         context.applicationContext.getSharedPreferences("mathking", Context.MODE_PRIVATE)
 
+    init {
+        // 阶段体系重构（2026-10）：老的 stage_id 换成新的。
+        // 必须用标记位保证只搬一次——否则新版的 s8/s9/s10 每次启动都会被当成旧 id 再搬一遍。
+        if (!sp.getBoolean(KEY_STAGE_REMAP, false)) {
+            val raw = sp.getString("stage_id", null)
+            val mapped = StageCatalog.legacyRemap[raw]
+            val editor = sp.edit().putBoolean(KEY_STAGE_REMAP, true)
+            if (mapped != null) editor.putString("stage_id", mapped)
+            editor.apply()
+        }
+    }
+
     var stageId: String
         get() = sp.getString("stage_id", StageCatalog.default.id) ?: StageCatalog.default.id
         set(value) = sp.edit().putString("stage_id", value).apply()
@@ -128,6 +140,9 @@ class Settings(context: Context) {
     }
 
     companion object {
+        /** 阶段 id 重映射只做一次 */
+        const val KEY_STAGE_REMAP = "stage_remap_v4"
+
         const val UNLOCK_MIN_QUESTIONS = 20
         const val UNLOCK_MIN_ACCURACY = 85.0
     }

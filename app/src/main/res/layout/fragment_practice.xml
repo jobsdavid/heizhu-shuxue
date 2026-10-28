@@ -109,6 +109,47 @@
                     android:textColor="@color/accent"
                     android:textSize="62sp"
                     android:textStyle="bold" />
+
+                <!-- 分数题的答案：只填分子，分母固定显示 -->
+                <LinearLayout
+                    android:id="@+id/answerFraction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvFracNum"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:minWidth="56dp"
+                        android:gravity="center"
+                        android:text="?"
+                        android:textColor="@color/accent"
+                        android:textSize="44sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="56dp"
+                        android:layout_height="3dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="4dp"
+                        android:background="@color/accent" />
+
+                    <TextView
+                        android:id="@+id/tvFracDen"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:minWidth="56dp"
+                        android:gravity="center"
+                        android:text="5"
+                        android:textColor="@color/accent"
+                        android:textSize="44sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView

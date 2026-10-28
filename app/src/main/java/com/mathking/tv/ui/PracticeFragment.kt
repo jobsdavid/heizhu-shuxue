@@ -26,6 +26,7 @@ import com.mathking.tv.data.StageConfig
 import com.mathking.tv.databinding.FragmentPracticeBinding
 import com.mathking.tv.engine.SessionEngine
 import com.mathking.tv.stats.Analytics
+import com.mathking.tv.ui.text.MathText
 import com.mathking.tv.util.Ui
 
 class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
@@ -92,7 +93,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         b.tvStage.text = "${stage.name} · ${mode.label}"
         b.tvTimer.visibility =
             if (mode == PlayMode.TIMED || mode == PlayMode.EXAM) View.VISIBLE else View.GONE
-        b.btnRepeat.setOnClickListener { speakQuestion() }
+        b.btnRepeat.setOnClickListener { speakQuestion(manual = true) }
         b.btnQuit.setOnClickListener { showQuitDialog() }
         requireActivity().onBackPressedDispatcher.addCallback(
             viewLifecycleOwner,
@@ -192,7 +193,20 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
 
     private fun updateAnswer() {
         if (_b == null) return
-        b.tvAnswer.text = if (input.isEmpty()) "?" else input.toString()
+        val q = engine?.question
+        val shown = if (input.isEmpty()) "?" else input.toString()
+        if (q != null && q.answerDen > 0) {
+            // 分数题：只填分子，分母固定显示（上下结构用布局画，比 span 稳）
+            b.tvAnswer.visibility = View.GONE
+            b.answerFraction.visibility = View.VISIBLE
+            b.tvFracNum.text = shown
+            b.tvFracDen.text = q.answerDen.toString()
+        } else {
+            b.answerFraction.visibility = View.GONE
+            b.tvAnswer.visibility = View.VISIBLE
+            b.tvAnswer.text = shown
+            b.tvAnswer.setTextSize(TypedValue.COMPLEX_UNIT_SP, 62f)
+        }
     }
 
     // ------------------------------------------------------------ 会话
@@ -240,14 +254,26 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         b.tvProgress.text = "第 ${e.index + 1}/${e.total} 题"
         b.progressBar.max = e.total
         b.progressBar.progress = e.index
-        b.tvQuestion.text = q.text
-        b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, when {
-            q.text.length <= 5 -> 92f
-            q.text.length <= 9 -> 72f
-            else -> 56f
-        })
+        // 找错题和填空题的题面里已经有等号了，别再补一个
+        val expr = if (q.text.contains("=")) q.text else "${q.text} ="
+        if (MathText.hasFraction(expr)) {
+            // 分数用上下结构排版，字号压小一点给分数线留空间
+            MathText.apply(b.tvQuestion, expr)
+            b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f)
+            b.tvQuestion.minHeight = (150f * resources.displayMetrics.density).toInt()
+        } else {
+            b.tvQuestion.text = expr
+            b.tvQuestion.minHeight = 0
+            b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, when {
+                expr.length <= 6 -> 88f
+                expr.length <= 10 -> 70f
+                else -> 54f
+            })
+        }
         b.tvFeedback.text = ""
         b.tvHint.text = if (q.findError) "这道题有错误，填正确答案" else ""
+        // 分数题不朗读，按钮弱化，免得娃按了没反应以为坏了
+        b.btnRepeat.alpha = if (q.speak.isBlank()) 0.35f else 1f
         b.tvHint.setTextColor(Ui.color(requireContext(), if (q.findError) R.color.accent else R.color.text_dim))
         input.clear()
         updateAnswer()
@@ -259,9 +285,13 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         app.speaker.speak(text, modeRate() * app.settings.speechScale)
     }
 
-    private fun speakQuestion() {
+    /** manual=true 是孩子主动按「再读一遍」，没语音时给个说明；自动朗读时别覆盖题目提示 */
+    private fun speakQuestion(manual: Boolean = false) {
         val q = engine?.question ?: return
-        if (q.speak.isBlank()) return
+        if (q.speak.isBlank()) {
+            if (manual) b.tvHint.text = "这道题没有朗读，直接看图算"
+            return
+        }
         app.speaker.speak(q.speak, modeRate() * app.settings.speechScale)
     }
 
