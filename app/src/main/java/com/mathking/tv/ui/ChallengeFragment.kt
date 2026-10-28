@@ -28,7 +28,6 @@ import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.data.StageConfig
 import com.mathking.tv.databinding.FragmentChallengeBinding
 import com.mathking.tv.util.Ui
-import kotlin.random.Random
 
 /**
  * 挑战模式：和电脑比同一道题，看谁先算出正确答案。
@@ -176,7 +175,8 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         b.tvFeedback.text = ""
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
 
-        computerMs = (baselineMs * (0.9 + Random.nextDouble() * 0.2)).toLong()
+        // 严格 = 历史最快每题用时 × 0.8：每一题电脑都比孩子的最好成绩快 20%
+        computerMs = baselineMs
         questionStart = SystemClock.elapsedRealtime()
         KeypadBuilder.focusCenter(b.keypad)
         speakQuestion()

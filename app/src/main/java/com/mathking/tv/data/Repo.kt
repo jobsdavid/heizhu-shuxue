@@ -303,6 +303,7 @@ class Repo(context: Context) {
             FROM session
             WHERE finished=1 AND stage_id=? AND total>=5
               AND correct_first * 1.0 / total >= 0.8
+              AND mode != 'challenge'
             """.trimIndent(),
             arrayOf(stageId)
         ).use { c ->
