@@ -28,6 +28,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         _b = FragmentSettingsBinding.bind(view)
         app = App.of(requireContext())
 
+        bind(b.rowProfile) { ProfileDialog(requireActivity(), onChanged = { refresh() }).show() }
         bind(b.rowStage) { changeStage(it) }
         bind(b.rowCount) { changeCount(it) }
         bind(b.rowMode) { changeMode(it) }
@@ -67,6 +68,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
 
     private fun refresh() {
         val stage = StageCatalog.byId(app.settings.stageId)
+        b.tvProfile.text = "${app.settings.avatar} ${app.settings.userName.ifBlank { "小朋友" }}"
         b.tvStage.text = stage.name
         b.tvCount.text = "${app.settings.questionCount} 题"
         b.tvMode.text = when (app.settings.mode) {

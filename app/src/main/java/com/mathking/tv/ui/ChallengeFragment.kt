@@ -71,6 +71,9 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
     private var computerMs = 0L
     private var timer: ValueAnimator? = null
 
+    private val displayName: String
+        get() = app.settings.userName.ifBlank { "你" }
+
     private val input = StringBuilder()
     private val handler = Handler(Looper.getMainLooper())
     private var quitDialog: Dialog? = null
@@ -149,7 +152,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             computerScore = 0
             records.clear()
             times.clear()
-            b.tvScore.text = "你 0 : 0 电脑"
+            b.tvScore.text = "$displayName 0 : 0 电脑"
             startQuestion()
         }
     }
@@ -216,7 +219,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         if (answered || finished) return
         answered = true
         computerScore++
-        b.tvScore.text = "你 $myScore : $computerScore 电脑"
+        b.tvScore.text = "$displayName $myScore : $computerScore 电脑"
         b.tvFeedback.text = "电脑先答完了，这题算电脑赢"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
         Sfx.wrong()
@@ -287,7 +290,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
             recordAttempt(value, false)
         }
-        b.tvScore.text = "你 $myScore : $computerScore 电脑"
+        b.tvScore.text = "$displayName $myScore : $computerScore 电脑"
         handler.postDelayed({ next() }, 1100)
     }
 
@@ -339,7 +342,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         b.tvResultTitle.setTextColor(
             Ui.color(requireContext(), if (win) R.color.accent else R.color.text)
         )
-        b.tvResultScore.text = "你 $myScore : $computerScore 电脑"
+        b.tvResultScore.text = "$displayName $myScore : $computerScore 电脑"
         val winTimes = records.filter { it.firstOk }.map { it.ms }
         val avg = if (winTimes.isEmpty()) 0.0 else winTimes.average() / 1000.0
         val tip = when {

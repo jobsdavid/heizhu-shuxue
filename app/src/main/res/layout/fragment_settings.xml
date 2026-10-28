@@ -30,6 +30,24 @@
             android:orientation="vertical">
 
             <LinearLayout
+                android:id="@+id/rowProfile"
+                style="@style/SettingRow">
+
+                <TextView
+                    style="@style/SettingLabel"
+                    android:text="我的资料" />
+
+                <TextView
+                    android:id="@+id/tvProfile"
+                    style="@style/SettingValue"
+                    android:text="🐷 小朋友" />
+
+                <TextView
+                    style="@style/SettingArrow"
+                    android:text="改 ›" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/rowStage"
                 style="@style/SettingRow">
 

@@ -40,6 +40,16 @@ class Settings(context: Context) {
         get() = sp.getBoolean("speak_on", true)
         set(value) = sp.edit().putBoolean("speak_on", value).apply()
 
+    /** 小朋友的名字，空 = 显示「小朋友」 */
+    var userName: String
+        get() = sp.getString("user_name", "") ?: ""
+        set(value) = sp.edit().putString("user_name", value).apply()
+
+    /** 头像（emoji） */
+    var avatar: String
+        get() = sp.getString("avatar", "🐷") ?: "🐷"
+        set(value) = sp.edit().putString("avatar", value).apply()
+
     var unlockedAll: Boolean
         get() = sp.getBoolean("unlocked_all", false)
         set(value) = sp.edit().putBoolean("unlocked_all", value).apply()

@@ -49,8 +49,12 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         _b = FragmentHomeBinding.bind(view)
         Ui.focusZoom(
             b.cardStart, b.cardDaily, b.cardChallenge,
-            b.cardWrong, b.cardStats, b.cardSettings
+            b.cardWrong, b.cardStats, b.cardSettings, b.rankBox
         )
+
+        b.rankBox.setOnClickListener {
+            ProfileDialog(requireActivity(), onChanged = { refresh() }).show()
+        }
 
         b.cardStart.setOnClickListener {
             val s = App.of(requireContext()).settings
@@ -131,10 +135,10 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             )
             val rank = Analytics.rank(power)
 
-            b.tvRankBadge.text = rank.badge
-            b.tvRankName.text = rank.name
+            b.tvRankBadge.text = app.settings.avatar
+            b.tvRankName.text = app.settings.userName.ifBlank { "小朋友" }
             b.tvRankName.setTextColor(Ui.color(requireContext(), rank.color))
-            b.tvPower.text = "算力 ${power.toInt()} / 1000"
+            b.tvPower.text = "${rank.name} · 算力 ${power.toInt()}"
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"
             b.tvTodayAccuracy.text =
@@ -165,10 +169,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             b.tvWrongCount.text = "${data.wrong} 道待攻克"
             b.tvStatsInfo.text = "累计 ${overall.questions} 题"
 
+            val who = app.settings.userName.ifBlank { "小朋友" }
             b.tvSubtitle.text = when {
-                data.today.questions == 0 && overall.questions == 0 -> "今天也来练几道题吧"
-                data.today.questions == 0 -> "今天还没练，来几道题热热身"
-                else -> "今天已经练了 ${data.today.questions} 题，真棒"
+                data.today.questions == 0 && overall.questions == 0 -> "$who，今天来练几道题吧"
+                data.today.questions == 0 -> "$who，今天还没练，来热热身"
+                else -> "$who，今天已经练了 ${data.today.questions} 题，真棒"
             }
             val progress = app.settings.unlockProgress(
                 stage, data.stageOverall.questions, data.stageOverall.accuracy
