@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.GridLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
@@ -43,13 +44,27 @@ class ProfileDialog(
 
         buildAvatars()
         buildNames()
+        buildUsers(dialog)
 
         dialog.findViewById<View>(R.id.btnQr)?.setOnClickListener {
             // 手机提交成功后，电视这边直接关掉资料页，回首页看结果
             ProfileQrDialog(activity, onSaved = { dialog.dismiss() }).show()
         }
         dialog.findViewById<View>(R.id.btnDone)?.setOnClickListener { dialog.dismiss() }
-        dialog.setOnDismissListener { onChanged() }
+        dialog.setOnDismissListener {
+            // 名字/头像可能改了，同步回花名册（切换用户时显示的是花名册里的名字）
+            val cur = app.users.current()
+            if (cur != null) {
+                app.users.update(
+                    cur.copy(
+                        name = app.settings.userName.ifBlank { "小朋友" },
+                        avatar = app.settings.avatar,
+                        avatarImage = app.settings.avatarImage
+                    )
+                )
+            }
+            onChanged()
+        }
 
         dialog.setOnShowListener {
             dialog.window?.setLayout(dp(640f), ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -57,6 +72,63 @@ class ProfileDialog(
         }
         refreshPreview()
         dialog.show()
+    }
+
+    /** 家庭成员条：点头像切孩子，末尾「＋」新建一个（数据完全分开） */
+    private fun buildUsers(dialog: Dialog) {
+        val row = dialog.findViewById<LinearLayout>(R.id.userRow) ?: return
+        row.removeAllViews()
+        val density = activity.resources.displayMetrics.density
+        app.users.users().forEach { user ->
+            val current = user.id == app.users.currentId
+            val chip = TextView(activity).apply {
+                text = "${user.avatar} ${user.name}"
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(
+                    ContextCompat.getColor(
+                        activity,
+                        if (current) R.color.bg else R.color.text
+                    )
+                )
+                setBackgroundColor(
+                    ContextCompat.getColor(activity, if (current) R.color.accent else R.color.card_hi)
+                )
+                setPadding(
+                    (14 * density).toInt(), (7 * density).toInt(),
+                    (14 * density).toInt(), (7 * density).toInt()
+                )
+                isFocusable = true
+                isClickable = true
+                setOnClickListener {
+                    if (current) return@setOnClickListener
+                    app.switchUser(user.id)
+                    dialog.dismiss()
+                }
+            }
+            val lp = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = (8 * density).toInt() }
+            row.addView(chip, lp)
+        }
+        val add = TextView(activity).apply {
+            text = "＋ 新孩子"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextColor(ContextCompat.getColor(activity, R.color.accent))
+            setBackgroundColor(ContextCompat.getColor(activity, R.color.card))
+            setPadding(
+                (14 * density).toInt(), (7 * density).toInt(),
+                (14 * density).toInt(), (7 * density).toInt()
+            )
+            isFocusable = true
+            isClickable = true
+            setOnClickListener {
+                val n = app.users.users().size + 1
+                app.addUser("小朋友$n")
+                dialog.dismiss()
+            }
+        }
+        row.addView(add)
     }
 
     private fun buildAvatars() {

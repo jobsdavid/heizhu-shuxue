@@ -5,10 +5,10 @@ import android.content.SharedPreferences
 import java.util.UUID
 
 /** 本地设置：默认阶段、题数、模式、声音、解锁进度、玩家 id（对战用） */
-class Settings(context: Context) {
+class Settings(context: Context, prefsName: String = "mathking") {
 
     private val sp: SharedPreferences =
-        context.applicationContext.getSharedPreferences("mathking", Context.MODE_PRIVATE)
+        context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     init {
         // 阶段体系重构（2026-10）：老的 stage_id 换成新的。
@@ -112,9 +112,10 @@ class Settings(context: Context) {
         stage: StageConfig,
         questions: Int,
         accuracy: Double,
-        avgSeconds: Double
+        avgSeconds: Double,
+        power: Double
     ): StageConfig? {
-        if (!meetsUnlock(stage, questions, accuracy, avgSeconds)) return null
+        if (!meetsUnlock(stage, questions, accuracy, avgSeconds, power)) return null
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
         unlock(next.id)
@@ -125,7 +126,8 @@ class Settings(context: Context) {
         stage: StageConfig,
         questions: Int,
         accuracy: Double,
-        avgSeconds: Double
+        avgSeconds: Double,
+        power: Double
     ): UnlockProgress? {
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
@@ -134,7 +136,9 @@ class Settings(context: Context) {
             questions = questions,
             accuracy = accuracy,
             avgSeconds = avgSeconds,
-            targetSeconds = speedTargetSeconds(stage)
+            targetSeconds = speedTargetSeconds(stage),
+            power = power,
+            powerTarget = powerTarget(stage)
         )
     }
 
@@ -168,6 +172,9 @@ class Settings(context: Context) {
         /** 平均每题用时 ≤ 阶段目标 × 这个比例：1.0 = 必须达到「不用想」的速度 */
         const val UNLOCK_SPEED_RATIO = 1.0
 
+        /** 算力门槛 = 阶段理论上限 × 这个比例：兜住「练够量」 */
+        const val POWER_TARGET_RATIO = 0.8
+
         /** 解锁要求的速度：平均每题不超过这个秒数 */
         fun speedTargetSeconds(stage: StageConfig): Double =
             stage.targetSeconds * UNLOCK_SPEED_RATIO
@@ -177,11 +184,25 @@ class Settings(context: Context) {
             stage: StageConfig,
             questions: Int,
             accuracy: Double,
-            avgSeconds: Double
+            avgSeconds: Double,
+            power: Double
         ): Boolean =
             questions >= UNLOCK_MIN_QUESTIONS &&
                 accuracy >= UNLOCK_MIN_ACCURACY &&
-                avgSeconds > 0 && avgSeconds <= speedTargetSeconds(stage)
+                avgSeconds > 0 && avgSeconds <= speedTargetSeconds(stage) &&
+                power >= powerTarget(stage)
+
+        /**
+         * 解锁要求的算力：该阶段理论上限的 80%。
+         * 正确率和速度已经卡了 95% / 目标秒数，这一条主要卡「练够了没有」——
+         * 20 题就算得再准也到不了，得实打实练到一两百题。
+         */
+        fun powerTarget(stage: StageConfig): Int =
+            (maxPower(stage) * POWER_TARGET_RATIO).toInt()
+
+        /** 该阶段算力的理论上限（正确率 + 速度 + 题量难度 都满分） */
+        fun maxPower(stage: StageConfig): Double =
+            450.0 + 150.0 + 400.0 * (stage.weight / 2.3).coerceAtMost(1.0)
     }
 
     /** 关闭「解锁全部」时，回到默认的 s1~s3 */

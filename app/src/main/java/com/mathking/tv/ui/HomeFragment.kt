@@ -3,15 +3,21 @@ package com.mathking.tv.ui
 import android.graphics.BitmapFactory
 import android.graphics.Outline
 import android.os.Bundle
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewOutlineProvider
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
+import com.mathking.tv.audio.Sfx
 import com.mathking.tv.R
 import com.mathking.tv.data.DailyPoint
 import com.mathking.tv.data.DailyRecord
 import com.mathking.tv.data.Overall
+import com.mathking.tv.data.ChallengeRules
 import com.mathking.tv.data.ChallengeStatus
 import com.mathking.tv.data.Repo
 import com.mathking.tv.data.Settings
@@ -60,6 +66,20 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             ProfileDialog(requireActivity(), onChanged = { refresh() }).show()
         }
 
+        // 左右键在已解锁的难度之间切换（不用进设置）
+        val stageKey = View.OnKeyListener { _, code, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@OnKeyListener false
+            val delta = when (code) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> -1
+                KeyEvent.KEYCODE_DPAD_RIGHT -> 1
+                else -> return@OnKeyListener false
+            }
+            switchStage(delta)
+            true
+        }
+        b.cardPractice.setOnKeyListener(stageKey)
+        b.cardExam.setOnKeyListener(stageKey)
+
         b.cardPractice.setOnClickListener {
             val s = App.of(requireContext()).settings
             val mode = if (s.mode == PlayMode.TIMED) PlayMode.TIMED else PlayMode.PRACTICE
@@ -98,7 +118,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 st.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS ->
                     "还要 ${Repo.CHALLENGE_FULL_ROUNDS - st.perfectRounds} 场满分考试（每场至少 5 题全对）才能解锁挑战"
                 st.credits <= 0 ->
-                    "挑战次数用完了，再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试就能再挑战一次"
+                    "挑战次数用完了，再考 ${ChallengeRules.perfectsToNextCredit(st.perfectRounds)} 场满分就能再挑战一次"
                 else -> null
             }
             if (msg != null) {
@@ -146,11 +166,29 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
     }
 
+    /** ← → 在当前已解锁的难度里换一个（设置页仍可改，两条路不冲突） */
+    private fun switchStage(delta: Int) {
+        val s = App.of(requireContext()).settings
+        val unlocked = StageCatalog.available.filter { s.isUnlocked(it.id) }
+        if (unlocked.size <= 1) return
+        val idx = unlocked.indexOfFirst { it.id == s.stageId }.coerceAtLeast(0)
+        val next = unlocked[(idx + delta + unlocked.size) % unlocked.size]
+        if (next.id == s.stageId) return
+        s.stageId = next.id
+        Sfx.tick()
+        refresh()
+    }
+
     private fun refresh() {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
         val stageNo = StageCatalog.indexOf(stage) + 1
-        b.tvPracticeInfo.text = "第 $stageNo 阶 · ${stage.name}"
+        val unlockedCount = StageCatalog.available.count { app.settings.isUnlocked(it.id) }
+        b.tvPracticeInfo.text = if (unlockedCount > 1) {
+            "‹ 第 $stageNo 阶 · ${stage.name} ›"   // 左右键换难度
+        } else {
+            "第 $stageNo 阶 · ${stage.name}"
+        }
         b.tvExamInfo.text = "第 $stageNo 阶 · 20 题"
         b.tvSettingsInfo.text = ""
 
@@ -177,7 +215,23 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             applyAvatar(app.settings)
             b.tvRankName.text = app.settings.userName.ifBlank { "小朋友" }
             b.tvRankName.setTextColor(Ui.color(requireContext(), rank.color))
-            b.tvPower.text = "${rank.name} · 算力 ${power.toInt()}"
+            // 等级徽章（猪头随段位换）、等级名、分数三处同色。
+            // 孩子传了照片头像时，徽章缩成右下角的小角标，两个都看得见
+            b.tvRankBadge.text = rank.badge
+            b.tvRankBadge.alpha = 1f
+            b.tvRankBadge.bringToFront()
+            b.tvRankBadge.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_pill)
+            b.tvRankBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (app.settings.avatarImage.isNotBlank()) 15f else 26f)
+            (b.tvRankBadge.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
+                gravity = if (app.settings.avatarImage.isNotBlank())
+                    (Gravity.END or Gravity.BOTTOM) else Gravity.CENTER
+                width = Ui.dp(requireContext(), if (app.settings.avatarImage.isNotBlank()) 26f else 44f)
+                height = Ui.dp(requireContext(), if (app.settings.avatarImage.isNotBlank()) 26f else 44f)
+                b.tvRankBadge.layoutParams = this
+            }
+            // 徽章直接写进副标题：孩子传了照片头像时角标会被压住，写文字永远看得见
+            b.tvPower.text = "${rank.badge} ${rank.name} · 算力 ${power.toInt()}"
+            b.tvPower.setTextColor(Ui.color(requireContext(), rank.color))
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"
             b.tvTodayAccuracy.text =
@@ -200,7 +254,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             b.tvChallengeInfo.text = when {
                 data.challenge.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS ->
                     "还差 ${Repo.CHALLENGE_FULL_ROUNDS - data.challenge.perfectRounds} 场满分"
-                data.challenge.credits <= 0 -> "挑战次数用完了 · 再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场 +1 次"
+                data.challenge.credits <= 0 ->
+                    "再考 ${ChallengeRules.perfectsToNextCredit(data.challenge.perfectRounds)} 场满分换 1 次挑战"
                 pace == null -> "可挑战 ${data.challenge.credits} 次"
                 else -> "可挑战 ${data.challenge.credits} 次 · 电脑 ${String.format("%.1f", pace / 1000.0)} 秒/题"
             }
@@ -220,17 +275,16 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 data.today.questions == 0 -> "$who，今天还没练，来热热身"
                 else -> "$who，今天已经练了 ${data.today.questions} 题，真棒"
             }
+            val stagePower = Analytics.power(
+                data.stageOverall.accuracy, data.stageOverall.avgSeconds, stage.targetSeconds,
+                data.stageOverall.questions, stage.weight
+            )
             val progress = app.settings.unlockProgress(
                 stage, data.stageOverall.questions, data.stageOverall.accuracy,
-                data.stageOverall.avgSeconds
+                data.stageOverall.avgSeconds, stagePower
             )
             b.tvPracticeMode.text = when {
-                progress != null && progress.needMoreQuestions > 0 ->
-                    "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
-                progress != null && progress.needMoreAccuracy > 0 ->
-                    "正确率到 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}% 解锁下一阶段"
-                progress != null && progress.needMoreSeconds > 0 ->
-                    "再快 ${String.format("%.1f", progress.needMoreSeconds)} 秒/题解锁下一阶段"
+                progress != null -> "解锁下一阶段：${progress.missingText}"
                 else -> "${app.settings.questionCount} 题 · " +
                     if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }

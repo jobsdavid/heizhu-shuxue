@@ -14,6 +14,15 @@
         android:textSize="22sp"
         android:textStyle="bold" />
 
+    <!-- 谁在练：一台电视可以建多个孩子，数据各存一份 -->
+    <LinearLayout
+        android:id="@+id/userRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal" />
+
     <TextView
         android:id="@+id/tvPreview"
         android:layout_width="wrap_content"

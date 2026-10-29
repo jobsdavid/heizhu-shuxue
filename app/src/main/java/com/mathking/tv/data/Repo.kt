@@ -14,6 +14,20 @@ import java.util.concurrent.Executors
 /**
  * 数据访问层。所有读写都丢到单线程队列，UI 线程只处理回调。
  */
+data class StageReport(
+    val practiceRounds: Int,
+    val examRounds: Int,
+    val challengeRounds: Int,
+    val bestScore: Double,
+    val worstScore: Double,
+    val avgScore: Double,
+    /** 单题最快 / 最慢 / 平均毫秒，0 = 没有记录 */
+    val fastestMs: Long,
+    val slowestMs: Long,
+    val avgMs: Long,
+    val attempts: Int
+)
+
 data class ChallengeStatus(
     /** 满分考试场次（解锁条件） */
     val perfectRounds: Int,
@@ -25,9 +39,13 @@ data class ChallengeStatus(
     val computerMs: Long?
 )
 
-class Repo(context: Context) {
+class Repo(context: Context, userId: Long = 0L) {
 
-    private val helper = DbHelper(context.applicationContext)
+    /** 每个孩子一个独立的库文件：数据物理隔离，查询不用到处加 user_id 条件 */
+    private val helper = DbHelper(
+        context.applicationContext,
+        if (userId > 0) "mathking_u$userId.db" else "mathking.db"
+    )
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
 
@@ -245,6 +263,71 @@ class Repo(context: Context) {
         return out.shuffled(rnd)
     }
 
+    /**
+     * 某阶段的战绩明细（家长要看的那种）：
+     * 练了几次、考了几次、挑了几次；最好/最差/平均分；每题最快/最慢/平均毫秒。
+     */
+    fun stageReport(stageId: String): StageReport {
+        val db = helper.readableDatabase
+        var practice = 0
+        var exam = 0
+        var challenge = 0
+        var best = 0.0
+        var worst = 0.0
+        var scoreSum = 0.0
+        var scoreN = 0
+        db.rawQuery(
+            "SELECT mode, COUNT(*), MIN(score), MAX(score), AVG(score) FROM session " +
+                "WHERE finished=1 AND stage_id=? GROUP BY mode",
+            arrayOf(stageId)
+        ).use { c ->
+            while (c.moveToNext()) {
+                when (c.getString(0)) {
+                    "practice", "timed", "wrongbook" -> practice += c.getInt(1)
+                    "exam" -> exam += c.getInt(1)
+                    "challenge" -> challenge += c.getInt(1)
+                }
+                if (c.getInt(1) > 0) {
+                    val lo = c.getDouble(2)
+                    val hi = c.getDouble(3)
+                    val avg = c.getDouble(4)
+                    if (scoreN == 0 || lo < best) best = lo
+                    if (scoreN == 0 || hi > worst) worst = hi
+                    scoreSum += avg * c.getInt(1)
+                    scoreN += c.getInt(1)
+                }
+            }
+        }
+        var fast = 0L
+        var slow = 0L
+        var msAvg = 0L
+        var tries = 0
+        db.rawQuery(
+            "SELECT MIN(a.ms), MAX(a.ms), AVG(a.ms), COUNT(*) FROM attempt a " +
+                "JOIN session s ON a.session_id = s.id WHERE s.stage_id=?",
+            arrayOf(stageId)
+        ).use { c ->
+            if (c.moveToFirst() && c.getInt(3) > 0) {
+                fast = c.getLong(0)
+                slow = c.getLong(1)
+                msAvg = c.getDouble(2).toLong()
+                tries = c.getInt(3)
+            }
+        }
+        return StageReport(
+            practiceRounds = practice,
+            examRounds = exam,
+            challengeRounds = challenge,
+            bestScore = if (scoreN == 0) 0.0 else best,
+            worstScore = if (scoreN == 0) 0.0 else worst,
+            avgScore = if (scoreN == 0) 0.0 else scoreSum / scoreN,
+            fastestMs = fast,
+            slowestMs = slow,
+            avgMs = msAvg,
+            attempts = tries
+        )
+    }
+
     /** 从错题本里抽题用于重练 */
     fun wrongQuestions(stageId: String? = null, limit: Int = 30): List<Question> {
         return wrongItems(stageId, includeMastered = false).take(limit).map { questionOf(it) }
@@ -373,11 +456,12 @@ class Repo(context: Context) {
     /**
      * 挑战状态：解锁、剩余次数、电脑速度。
      *
-     * 规则（2026-10 定稿）：
-     * 1. 解锁条件不变：该阶段攒满 [CHALLENGE_FULL_ROUNDS] 场「满分考试」（每场 ≥5 题）；
-     * 2. 解锁时送 1 次挑战；此后每考 [CHALLENGE_EXAMS_PER_CREDIT] 场考试（不要求满分）攒 1 次，
-     *    次数可以累积、不清零；每开一局挑战消耗 1 次（挑战场次本身也落一条 session，天然计数）；
-     * 3. 电脑速度 = 该阶段「最快的 5 场考试」的平均每题用时 × 0.8。
+     * 规则（2026-10 最终定稿）：
+     * 1. 该阶段每 [CHALLENGE_PERFECT_PER_CREDIT] 场「满分考试」（每场 ≥5 题）换 1 次挑战；
+     *    也就是 2 场满分 = 1 次，攒着不清零；
+     * 2. 每开一局挑战消耗 1 次（挑战场次本身也落一条 session，天然计数），
+     *    只统计「解锁那一刻之后」的挑战，老版本打的不会被倒扣；
+     * 3. 电脑速度 = 该阶段「最快的 5 场考试」的平均每题用时 × 0.8，
      *    优先在正确率 ≥80% 的场次里挑（防止一口气乱点把基准拉飞），不够 5 场才放宽到全部考试。
      */
     fun challengeStatus(stage: StageConfig): ChallengeStatus {
@@ -394,30 +478,22 @@ class Repo(context: Context) {
                 perfect = c.getInt(1)
             }
         }
-        // 解锁时刻 = 第 5 场满分考试的时间点。之后的考试才算「攒次数」，
-        // 之前的挑战（老规则下打的）不算花掉次数 —— 否则老用户一升级就倒欠一堆。
-        val unlockAt = if (perfect < CHALLENGE_FULL_ROUNDS) null else db.rawQuery(
+        // 「解锁时刻」= 凑够第一次兑换的那场满分考试。之后的挑战才算花掉次数，
+        // 老版本打过的挑战不追究，否则升级后直接倒欠。
+        val needed = CHALLENGE_PERFECT_PER_CREDIT
+        val unlockAt = if (perfect < needed) null else db.rawQuery(
             "SELECT started_at FROM session WHERE finished=1 AND stage_id=? AND mode='exam' " +
                 "AND total>=5 AND correct_first>=total ORDER BY started_at ASC LIMIT 1 OFFSET ?",
-            arrayOf(stage.id, (CHALLENGE_FULL_ROUNDS - 1).toString())
+            arrayOf(stage.id, (needed - 1).toString())
         ).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
 
-        fun countSince(sql: String): Int {
-            if (unlockAt == null) return 0
-            db.rawQuery(sql, arrayOf(stage.id, unlockAt.toString())).use { c ->
-                return if (c.moveToFirst()) c.getInt(0) else 0
-            }
-        }
-        val examsAfter = countSince(
-            "SELECT COUNT(*) FROM session WHERE finished=1 AND stage_id=? AND mode='exam' " +
-                "AND total>=5 AND started_at > ?"
-        )
-        val startsAfter = countSince(
-            "SELECT COUNT(*) FROM session WHERE stage_id=? AND mode='challenge' AND started_at > ?"
-        )
+        val startsAfter = if (unlockAt == null) 0 else db.rawQuery(
+            "SELECT COUNT(*) FROM session WHERE stage_id=? AND mode='challenge' AND started_at > ?",
+            arrayOf(stage.id, unlockAt.toString())
+        ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 
         val unlocked = unlockAt != null
-        val credits = if (!unlocked) 0 else ChallengeRules.credits(examsAfter, startsAfter)
+        val credits = if (!unlocked) 0 else ChallengeRules.credits(perfect, startsAfter)
 
         val rows = ArrayList<Triple<Long, Int, Int>>()   // duration, total, correct
         db.rawQuery(
@@ -536,11 +612,11 @@ class Repo(context: Context) {
     }
 
     companion object {
-        /** 挑战模式解锁需要的满分场次数 */
-        const val CHALLENGE_FULL_ROUNDS = 5
+        /** 几场「满分考试」换 1 次挑战（2 场满分 = 1 次，2026-10 用户要求） */
+        const val CHALLENGE_PERFECT_PER_CREDIT = 2
 
-        /** 解锁后再考几场能换 1 次挑战 */
-        const val CHALLENGE_EXAMS_PER_CREDIT = 5
+        /** 兼容旧叫法：解锁需要的满分考试场次 */
+        const val CHALLENGE_FULL_ROUNDS = CHALLENGE_PERFECT_PER_CREDIT
     }
 
     fun clearAll() {

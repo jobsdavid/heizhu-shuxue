@@ -8,7 +8,8 @@ import android.database.sqlite.SQLiteOpenHelper
  * 本地数据库：全部练习记录、错题、对战同步队列。
  * 直接用 SQLiteOpenHelper 写 SQL，不加注解处理器，启动快、依赖少。
  */
-class DbHelper(context: Context) : SQLiteOpenHelper(context, DB_NAME, null, DB_VERSION) {
+class DbHelper(context: Context, dbName: String = DB_NAME) :
+    SQLiteOpenHelper(context, dbName, null, DB_VERSION) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(

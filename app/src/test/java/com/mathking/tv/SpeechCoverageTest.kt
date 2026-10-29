@@ -123,18 +123,22 @@ class SpeechCoverageTest {
     }
 
     @Test
-    fun `挑战次数按考试场次累积`() {
-        // 解锁即送 1 次
-        assertEquals(1, com.mathking.tv.data.ChallengeRules.credits(0, 0))
-        // 用户举的例子：解锁后考了 15 场、一次没挑战 → 1 + 3 = 4 次
-        assertEquals(4, com.mathking.tv.data.ChallengeRules.credits(15, 0))
-        // 挑战过一次就少一次，余数不丢
-        assertEquals(3, com.mathking.tv.data.ChallengeRules.credits(15, 1))
-        assertEquals(0, com.mathking.tv.data.ChallengeRules.credits(4, 1))
-        // 挑战打多了不会出现负数
-        assertEquals(0, com.mathking.tv.data.ChallengeRules.credits(0, 3))
-        assertEquals(2, com.mathking.tv.data.ChallengeRules.examsToNextCredit(3))
-        assertEquals(5, com.mathking.tv.data.ChallengeRules.examsToNextCredit(0))
+    fun `两场满分考试换一次挑战`() {
+        val rules = com.mathking.tv.data.ChallengeRules
+        // 0/1 场满分别想挑战
+        assertEquals(0, rules.credits(0, 0))
+        assertEquals(0, rules.credits(1, 0))
+        // 2 场满分 = 1 次；4 场 = 2 次（攒着不清零）
+        assertEquals(1, rules.credits(2, 0))
+        assertEquals(2, rules.credits(4, 0))
+        assertEquals(3, rules.credits(6, 0))
+        // 打过一次就少一次
+        assertEquals(1, rules.credits(4, 1))
+        assertEquals(0, rules.credits(3, 2))
+        // 还差几场满分
+        assertEquals(2, rules.perfectsToNextCredit(0))
+        assertEquals(1, rules.perfectsToNextCredit(1))
+        assertEquals(2, rules.perfectsToNextCredit(4))
     }
 
     @Test

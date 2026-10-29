@@ -21,6 +21,7 @@ import com.mathking.tv.R
 import com.mathking.tv.audio.Sfx
 import com.mathking.tv.audio.Speech
 import com.mathking.tv.data.AttemptRecord
+import com.mathking.tv.data.ChallengeRules
 import com.mathking.tv.data.Generator
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.Question
@@ -128,8 +129,8 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             if (st.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS) {
                 blocked(
                     "挑战未解锁",
-                    "在「${stage.name}」做满 ${Repo.CHALLENGE_FULL_ROUNDS} 场考试全对（每场至少 5 题）就能解锁",
-                    "还差 ${Repo.CHALLENGE_FULL_ROUNDS - st.perfectRounds} 场满分"
+                    "在「${stage.name}」做满 ${Repo.CHALLENGE_PERFECT_PER_CREDIT} 场满分考试（每场至少 5 题）就能解锁一次挑战",
+                    "还差 ${Repo.CHALLENGE_PERFECT_PER_CREDIT - st.perfectRounds} 场满分"
                 )
                 return@async
             }
@@ -137,8 +138,8 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
                 // 挑战次数用完了：每考 5 场考试换 1 次（次数可以攒着不花）
                 blocked(
                     "次数用完了",
-                    "每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试能换 1 次挑战，攒着不用也不会清零",
-                    "先考几场试"
+                    "每 ${Repo.CHALLENGE_PERFECT_PER_CREDIT} 场满分考试能换 1 次挑战，攒着不用也不会清零",
+                    "再考 ${ChallengeRules.perfectsToNextCredit(st.perfectRounds)} 场满分就行"
                 )
                 return@async
             }
@@ -434,10 +435,10 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
             if (!isAdded || _b == null) return@async
             if (st.credits <= 0) {
-                b.btnAgain.text = "再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场再来"
+                b.btnAgain.text = "再考 ${Repo.CHALLENGE_PERFECT_PER_CREDIT} 场满分再来"
                 b.btnAgain.setOnClickListener { (activity as? MainActivity)?.goHome() }
                 b.tvResultDetail.text = b.tvResultDetail.text.toString() +
-                    "\n挑战次数用完了：每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试能再挑战一次"
+                    "\n挑战次数用完了：每 ${Repo.CHALLENGE_PERFECT_PER_CREDIT} 场满分考试能再挑战一次"
             }
         }
     }
@@ -446,7 +447,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
             if (!isAdded || _b == null) return@async
             if (st.credits <= 0) {
-                b.tvResultDetail.text = "挑战次数用完了，先去考试吧：每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场能再挑战一次"
+                b.tvResultDetail.text = "挑战次数用完了，先去考试吧：每 ${Repo.CHALLENGE_PERFECT_PER_CREDIT} 场满分能再挑战一次"
                 return@async
             }
             b.resultLayer.visibility = View.GONE

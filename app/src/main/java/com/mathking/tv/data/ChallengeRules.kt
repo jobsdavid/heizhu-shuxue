@@ -8,17 +8,21 @@ package com.mathking.tv.data
  */
 object ChallengeRules {
 
-    const val PER_CREDIT = Repo.CHALLENGE_EXAMS_PER_CREDIT
+    const val PER_CREDIT = Repo.CHALLENGE_PERFECT_PER_CREDIT
 
     /**
-     * @param examsAfter 解锁之后又考了几场
+     * 挑战次数 = 满分考试场次 / 2 − 已花掉的次数
+     *
+     * 2 场满分 = 1 次挑战；攒着不清零，打多了也不会变负数。
+     *
+     * @param perfectExams 该阶段满分考试场次
      * @param startsAfter 解锁之后已经打了几局挑战
      */
-    fun credits(examsAfter: Int, startsAfter: Int): Int =
-        (1 + examsAfter.coerceAtLeast(0) / PER_CREDIT - startsAfter.coerceAtLeast(0))
+    fun credits(perfectExams: Int, startsAfter: Int): Int =
+        (perfectExams.coerceAtLeast(0) / PER_CREDIT - startsAfter.coerceAtLeast(0))
             .coerceAtLeast(0)
 
-    /** 距离下一次攒到挑战次数还差几场考试 */
-    fun examsToNextCredit(examsAfter: Int): Int =
-        PER_CREDIT - (examsAfter.coerceAtLeast(0) % PER_CREDIT)
+    /** 距离下一次攒到挑战次数还差几场满分考试 */
+    fun perfectsToNextCredit(perfectExams: Int): Int =
+        PER_CREDIT - (perfectExams.coerceAtLeast(0) % PER_CREDIT)
 }

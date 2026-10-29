@@ -181,10 +181,31 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
             else "练了 ${stats.questions} 题 · 正确率 ${Fmt.pct(stats.accuracy)} · " +
                 "平均 ${"%.1f".format(stats.avgSeconds)} 秒/题"
         )
+
+        // 家长要看细账：练了几次、考了几次、最好最差、单题最快最慢
+        val rep = app.repo.stageReport(stage.id)
+        if (rep.attempts > 0) {
+            sb.append("\n\n练习 ${rep.practiceRounds} 次 · 考试 ${rep.examRounds} 次")
+            if (rep.challengeRounds > 0) sb.append(" · 挑战 ${rep.challengeRounds} 次")
+            if (rep.examRounds + rep.practiceRounds > 0) {
+                sb.append("\n单场得分：最好 ${rep.bestScore.toInt()} · 最差 ${rep.worstScore.toInt()}")
+                sb.append(" · 平均 ${rep.avgScore.toInt()}")
+            }
+            sb.append("\n每题用时：最快 ${rep.fastestMs}ms · 最慢 ${rep.slowestMs}ms")
+            sb.append(" · 平均 ${rep.avgMs}ms（共 ${rep.attempts} 题）")
+        }
+
         if (!unlocked && prev != null && prevStats != null) {
-            sb.append("\n\n解锁条件：在「${prev.name}」练满 ${Settings.UNLOCK_MIN_QUESTIONS} 题、")
-            sb.append("正确率 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}%")
-            sb.append("（现在 ${prevStats.questions} 题 / ${Fmt.pct(prevStats.accuracy)}）")
+            val prevPower = Analytics.power(
+                prevStats.accuracy, prevStats.avgSeconds, prev.targetSeconds,
+                prevStats.questions, prev.weight
+            )
+            sb.append("\n\n解锁条件（在「${prev.name}」）：")
+            sb.append("\n① 练满 ${Settings.UNLOCK_MIN_QUESTIONS} 题（现在 ${prevStats.questions} 题）")
+            sb.append("\n② 正确率 ≥ ${Settings.UNLOCK_MIN_ACCURACY.toInt()}%（现在 ${Fmt.pct(prevStats.accuracy)}）")
+            sb.append("\n③ 平均每题 ≤ ${"%.0f".format(Settings.speedTargetSeconds(prev))} 秒" +
+                "（现在 ${"%.1f".format(prevStats.avgSeconds)} 秒）")
+            sb.append("\n④ 算力 ≥ ${Settings.powerTarget(prev)}（现在 ${prevPower.toInt()}）")
         }
         dialog.findViewById<TextView>(R.id.tvStageStats).text = sb.toString()
 

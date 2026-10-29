@@ -186,7 +186,11 @@ data class UnlockProgress(
     /** 当前阶段累计平均每题用时 */
     val avgSeconds: Double,
     /** 解锁要求的速度上限（秒/题） */
-    val targetSeconds: Double
+    val targetSeconds: Double,
+    /** 当前阶段算力 */
+    val power: Double,
+    /** 解锁要求算力 */
+    val powerTarget: Int
 ) {
     val needMoreQuestions: Int
         get() = (Settings.UNLOCK_MIN_QUESTIONS - questions).coerceAtLeast(0)
@@ -196,6 +200,20 @@ data class UnlockProgress(
     /** 还要再快多少秒/题，0 = 速度已达标 */
     val needMoreSeconds: Double
         get() = if (avgSeconds <= 0) 0.0 else (avgSeconds - targetSeconds).coerceAtLeast(0.0)
+
+    /** 算力还差多少，0 = 已达标 */
+    val needMorePower: Double
+        get() = (powerTarget - power).coerceAtLeast(0.0)
+
+    /** 一句话说清还差什么（首页/地图共用） */
+    val missingText: String
+        get() = when {
+            needMoreQuestions > 0 -> "还差 $needMoreQuestions 题"
+            needMoreAccuracy > 0 -> "正确率到 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}%"
+            needMoreSeconds > 0 -> "再快 ${String.format("%.1f", needMoreSeconds)} 秒/题"
+            needMorePower > 0 -> "算力还差 ${needMorePower.toInt()}"
+            else -> "马上就能解锁"
+        }
 }
 
 /** 每日挑战记录 */
