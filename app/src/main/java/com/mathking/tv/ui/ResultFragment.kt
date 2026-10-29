@@ -61,6 +61,9 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
                     if (progress.needMoreAccuracy > 0) {
                         parts.add("正确率差 ${String.format("%.1f", progress.needMoreAccuracy)}%")
                     }
+                    if (progress.needMorePower > 0) {
+                        parts.add("算力 ${progress.power.toInt()}/${progress.powerTarget}")
+                    }
                     if (parts.isEmpty()) parts.add("马上就能解锁")
                     append(parts.joinToString(" · "))
                 }

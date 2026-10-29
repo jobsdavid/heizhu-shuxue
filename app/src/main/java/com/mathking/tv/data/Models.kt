@@ -182,12 +182,18 @@ data class Overall(
 data class UnlockProgress(
     val nextStageName: String,
     val questions: Int,
-    val accuracy: Double
+    val accuracy: Double,
+    /** 当前阶段的算力 */
+    val power: Double,
+    /** 解锁下一阶段要求的算力 */
+    val powerTarget: Int
 ) {
     val needMoreQuestions: Int
         get() = (Settings.UNLOCK_MIN_QUESTIONS - questions).coerceAtLeast(0)
     val needMoreAccuracy: Double
         get() = (Settings.UNLOCK_MIN_ACCURACY - accuracy).coerceAtLeast(0.0)
+    val needMorePower: Double
+        get() = (powerTarget - power).coerceAtLeast(0.0)
 }
 
 /** 每日挑战记录 */

@@ -113,27 +113,43 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
     // ------------------------------------------------------------ 启动
 
     private fun loadBaseline() {
-        app.repo.async({ app.repo.challengeBase(stage.id) }) { base ->
-            val pace = base.first
-            val rounds = base.second
+        app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
             if (!isAdded || _b == null) return@async
-            if (pace == null) {
-                b.tvPace.text = "还差 ${Repo.CHALLENGE_FULL_ROUNDS - rounds} 场满分"
-                b.tvQuestion.text = "挑战未解锁"
+            fun blocked(title: String, tip: String, paceText: String) {
+                b.tvPace.text = paceText
+                b.tvQuestion.text = title
                 b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 40f)
-                b.tvHint.text = "在「${stage.name}」做满 ${Repo.CHALLENGE_FULL_ROUNDS} 场全对（每场至少 5 题）就能解锁"
+                b.tvHint.text = tip
                 b.tvCountdown.text = ""
                 b.progressComputer.visibility = View.GONE
                 b.tvAnswer.visibility = View.GONE
                 b.keypad.visibility = View.GONE
+            }
+            if (st.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS) {
+                blocked(
+                    "挑战未解锁",
+                    "在「${stage.name}」做满 ${Repo.CHALLENGE_FULL_ROUNDS} 场考试全对（每场至少 5 题）就能解锁",
+                    "还差 ${Repo.CHALLENGE_FULL_ROUNDS - st.perfectRounds} 场满分"
+                )
                 return@async
             }
-            // 下限别定太高：原来按目标秒数的一半，50 以内就到 4 秒/题，
-            // 孩子一旦 3 秒就算完，电脑永远追不上，挑战就没意义了。
-            // 现在按目标的 40%（最少 1.5 秒）：既不会「物理上不可能」，也不会白送
-            val minMs = (stage.targetSeconds * 400L).coerceAtLeast(1500L)
-            baselineMs = (pace * 0.8).toLong().coerceIn(minMs, 20000L)
-            b.tvPace.text = "电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题"
+            if (st.credits <= 0) {
+                // 挑战次数用完了：每考 5 场考试换 1 次（次数可以攒着不花）
+                blocked(
+                    "次数用完了",
+                    "每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试能换 1 次挑战，攒着不用也不会清零",
+                    "先考几场试"
+                )
+                return@async
+            }
+            val pace = st.computerMs
+            if (pace == null) {
+                blocked("还没有考试记录", "先考一场试试，电脑要拿你的考试速度当对手", "没有基准")
+                return@async
+            }
+            // 基准已经在 challengeStatus 里算好（最快 5 场考试 × 0.8，带下限）
+            baselineMs = pace
+            b.tvPace.text = "电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题 · 剩 ${st.credits} 次"
             buildQuestions { openSession() }
         }
     }
@@ -414,13 +430,30 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             "$paceText · 电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题（你的最快纪录 × 0.8）\n$tip"
         b.btnAgain.requestFocus()
         if (win) Sfx.levelUp() else Sfx.finish()
+        // 这一局已经花掉一次，看看还剩几次；没了就把「再来一轮」换成提示
+        app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
+            if (!isAdded || _b == null) return@async
+            if (st.credits <= 0) {
+                b.btnAgain.text = "再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场再来"
+                b.btnAgain.setOnClickListener { (activity as? MainActivity)?.goHome() }
+                b.tvResultDetail.text = b.tvResultDetail.text.toString() +
+                    "\n挑战次数用完了：每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试能再挑战一次"
+            }
+        }
     }
 
     private fun restart() {
-        b.resultLayer.visibility = View.GONE
-        finished = false
-        timer?.cancel()
-        buildQuestions { openSession() }
+        app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
+            if (!isAdded || _b == null) return@async
+            if (st.credits <= 0) {
+                b.tvResultDetail.text = "挑战次数用完了，先去考试吧：每考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场能再挑战一次"
+                return@async
+            }
+            b.resultLayer.visibility = View.GONE
+            finished = false
+            timer?.cancel()
+            buildQuestions { openSession() }
+        }
     }
 
     // ------------------------------------------------------------ 其它

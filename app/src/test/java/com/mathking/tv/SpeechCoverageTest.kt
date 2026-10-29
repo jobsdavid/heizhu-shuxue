@@ -123,6 +123,33 @@ class SpeechCoverageTest {
     }
 
     @Test
+    fun `挑战次数按考试场次累积`() {
+        // 解锁即送 1 次
+        assertEquals(1, com.mathking.tv.data.ChallengeRules.credits(0, 0))
+        // 用户举的例子：解锁后考了 15 场、一次没挑战 → 1 + 3 = 4 次
+        assertEquals(4, com.mathking.tv.data.ChallengeRules.credits(15, 0))
+        // 挑战过一次就少一次，余数不丢
+        assertEquals(3, com.mathking.tv.data.ChallengeRules.credits(15, 1))
+        assertEquals(0, com.mathking.tv.data.ChallengeRules.credits(4, 1))
+        // 挑战打多了不会出现负数
+        assertEquals(0, com.mathking.tv.data.ChallengeRules.credits(0, 3))
+        assertEquals(2, com.mathking.tv.data.ChallengeRules.examsToNextCredit(3))
+        assertEquals(5, com.mathking.tv.data.ChallengeRules.examsToNextCredit(0))
+    }
+
+    @Test
+    fun `解锁算力门槛必须落在可达范围内`() {
+        // 用户要求「门槛很高」：目标 = 阶段理论上限 × 0.9
+        StageCatalog.all.forEach { stage ->
+            val ratio = 0.9
+            val cap = 450.0 + 150.0 + 400.0 * (stage.weight / 2.3).coerceAtMost(1.0)
+            val target = cap * ratio
+            assertTrue("${stage.id} 目标 $target 不能超过上限 $cap", target <= cap)
+            assertTrue("${stage.id} 目标太低", target > 600)
+        }
+    }
+
+    @Test
     fun `一百一十不能读成一百十`() {
         assertEquals("一百一十", Generator.cn(110))
         assertEquals("一百零五", Generator.cn(105))

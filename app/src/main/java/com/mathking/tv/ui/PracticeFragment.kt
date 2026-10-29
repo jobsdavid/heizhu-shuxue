@@ -782,8 +782,12 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             val totalQuestions = overall.questions + summary.total
             val totalCorrect = overall.correct + summary.correctFirst
             val totalAccuracy = if (totalQuestions == 0) 0.0 else totalCorrect * 100.0 / totalQuestions
+            // 解锁看的是「这个阶段的累计水平」，所以速度也用累计平均，不能只看这一局
+            val totalAvgSeconds =
+                if (totalQuestions == 0) summary.avgSeconds
+                else (overall.msTotal + summary.durationMs) / 1000.0 / totalQuestions
             val power = Analytics.power(
-                summary.score, summary.avgSeconds, stage.targetSeconds,
+                totalAccuracy, totalAvgSeconds, stage.targetSeconds,
                 totalQuestions, stage.weight
             )
             app.repo.closeSession(
@@ -794,10 +798,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 app.repo.saveDaily(dailyDay!!, stage.id, summary.total, summary.correctFirst)
             }
             val unlocked = if (finishedOk) {
-                app.settings.checkUnlock(stage, totalQuestions, totalAccuracy)
+                app.settings.checkUnlock(stage, totalQuestions, totalAccuracy, power)
             } else null
             val progress = if (finishedOk) {
-                app.settings.unlockProgress(stage, totalQuestions, totalAccuracy)
+                app.settings.unlockProgress(stage, totalQuestions, totalAccuracy, power)
             } else null
             Triple(summary.copy(power = power), unlocked, progress)
         }) { result ->

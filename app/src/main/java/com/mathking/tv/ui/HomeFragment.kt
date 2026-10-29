@@ -12,7 +12,9 @@ import com.mathking.tv.R
 import com.mathking.tv.data.DailyPoint
 import com.mathking.tv.data.DailyRecord
 import com.mathking.tv.data.Overall
+import com.mathking.tv.data.ChallengeStatus
 import com.mathking.tv.data.Repo
+import com.mathking.tv.data.Settings
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.data.TodaySummary
@@ -31,8 +33,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     private val b get() = _b!!
 
     /** 有达标战绩才有值：电脑每题用时（毫秒） */
-    private var challengePace: Long? = null
-    private var challengeRounds: Int = 0
+    private var challengeStatus: ChallengeStatus? = null
 
     private var todayKey: String = ""
     private var todayDaily: DailyRecord? = null
@@ -42,8 +43,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val overall: Overall,
         val wrong: Int,
         val days: List<DailyPoint>,
-        val challengePaceMs: Long?,
-        val fullRounds: Int,
+        val challenge: ChallengeStatus,
         val daily: DailyRecord?,
         val dailyStreak: Int,
         val stageOverall: Overall
@@ -92,13 +92,17 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
         b.cardChallenge.setOnClickListener {
             val s = App.of(requireContext()).settings
-            val pace = challengePace
-            if (pace == null) {
-                android.widget.Toast.makeText(
-                    requireContext(),
-                    "还需要 ${Repo.CHALLENGE_FULL_ROUNDS - challengeRounds} 场满分（每场至少 5 题全对）才能挑战电脑",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
+            val st = challengeStatus
+            val msg = when {
+                st == null -> "正在读取挑战状态…"
+                st.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS ->
+                    "还要 ${Repo.CHALLENGE_FULL_ROUNDS - st.perfectRounds} 场满分考试（每场至少 5 题全对）才能解锁挑战"
+                st.credits <= 0 ->
+                    "挑战次数用完了，再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场考试就能再挑战一次"
+                else -> null
+            }
+            if (msg != null) {
+                android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_LONG).show()
             } else {
                 (activity as? MainActivity)?.navigate(ChallengeFragment.newInstance(s.stageId))
             }
@@ -153,11 +157,11 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         app.repo.async({
             val stageOverall = app.repo.overall(stage.id)
-            val base = app.repo.challengeBase(stage.id)
+            val base = app.repo.challengeStatus(stage)
             HomeData(
                 app.repo.today(), app.repo.overall(), app.repo.wrongCount(),
                 app.repo.dailyStats(30),
-                base.first, base.second,
+                base,
                 app.repo.dailyRecord(todayKey), app.repo.dailyStreak(),
                 stageOverall
             )
@@ -191,14 +195,20 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             }
             b.tvDailyAction.text = if (data.daily?.full == true) "明天再来" else "去挑战 ›"
 
-            val minMs = stage.targetSeconds * 500L
-            challengeRounds = data.fullRounds
-            challengePace = data.challengePaceMs?.let { (it * 0.8).toLong().coerceIn(minMs, 20000L) }
-            b.tvChallengeInfo.text = challengePace?.let {
-                "对手 ${String.format("%.1f", it / 1000.0)} 秒/题"
-            } ?: "还差 ${Repo.CHALLENGE_FULL_ROUNDS - data.fullRounds} 场满分"
+            challengeStatus = data.challenge
+            val pace = data.challenge.computerMs
+            b.tvChallengeInfo.text = when {
+                data.challenge.perfectRounds < Repo.CHALLENGE_FULL_ROUNDS ->
+                    "还差 ${Repo.CHALLENGE_FULL_ROUNDS - data.challenge.perfectRounds} 场满分"
+                data.challenge.credits <= 0 -> "挑战次数用完了 · 再考 ${Repo.CHALLENGE_EXAMS_PER_CREDIT} 场 +1 次"
+                pace == null -> "可挑战 ${data.challenge.credits} 次"
+                else -> "可挑战 ${data.challenge.credits} 次 · 电脑 ${String.format("%.1f", pace / 1000.0)} 秒/题"
+            }
             b.tvChallengeInfo.setTextColor(
-                Ui.color(requireContext(), if (challengePace == null) R.color.text_dim else R.color.accent)
+                Ui.color(
+                    requireContext(),
+                    if (data.challenge.credits > 0 && pace != null) R.color.accent else R.color.text_dim
+                )
             )
 
             b.tvWrongCount.text = "${data.wrong} 道"
@@ -210,14 +220,20 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 data.today.questions == 0 -> "$who，今天还没练，来热热身"
                 else -> "$who，今天已经练了 ${data.today.questions} 题，真棒"
             }
+            val stagePower = Analytics.power(
+                data.stageOverall.accuracy, data.stageOverall.avgSeconds, stage.targetSeconds,
+                data.stageOverall.questions, stage.weight
+            )
             val progress = app.settings.unlockProgress(
-                stage, data.stageOverall.questions, data.stageOverall.accuracy
+                stage, data.stageOverall.questions, data.stageOverall.accuracy, stagePower
             )
             b.tvPracticeMode.text = when {
                 progress != null && progress.needMoreQuestions > 0 ->
                     "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
                 progress != null && progress.needMoreAccuracy > 0 ->
-                    "正确率到 85% 解锁下一阶段"
+                    "正确率到 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}% 解锁下一阶段"
+                progress != null && progress.needMorePower > 0 ->
+                    "算力还差 ${progress.needMorePower.toInt()}（目标 ${progress.powerTarget}）"
                 else -> "${app.settings.questionCount} 题 · " +
                     if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }

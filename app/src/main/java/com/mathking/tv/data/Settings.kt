@@ -103,23 +103,52 @@ class Settings(context: Context) {
      * 解锁下一阶段：看该阶段的「累计」表现，而不是某一局的手气
      * —— 累计至少 20 题、正确率至少 85%
      */
-    fun checkUnlock(stage: StageConfig, questions: Int, accuracy: Double): StageConfig? {
-        if (questions < UNLOCK_MIN_QUESTIONS || accuracy < UNLOCK_MIN_ACCURACY) return null
+    fun checkUnlock(
+        stage: StageConfig,
+        questions: Int,
+        accuracy: Double,
+        power: Double
+    ): StageConfig? {
+        if (questions < UNLOCK_MIN_QUESTIONS) return null
+        if (accuracy < UNLOCK_MIN_ACCURACY) return null
+        if (power < powerTarget(stage)) return null
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
         unlock(next.id)
         return next
     }
 
-    fun unlockProgress(stage: StageConfig, questions: Int, accuracy: Double): UnlockProgress? {
+    fun unlockProgress(
+        stage: StageConfig,
+        questions: Int,
+        accuracy: Double,
+        power: Double
+    ): UnlockProgress? {
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
         return UnlockProgress(
             nextStageName = next.name,
             questions = questions,
-            accuracy = accuracy
+            accuracy = accuracy,
+            power = power,
+            powerTarget = powerTarget(stage)
         )
     }
+
+    /**
+     * 解锁下一阶段要求的算力。
+     *
+     * 用户要求「门槛很高」：按该阶段理论上限的 90% 定。
+     * 以 s1 为例，满分上限约 774（正确率 450 + 速度 150 + 题量×难度 174），
+     * 目标 697 —— 意味着 300 题上下的练习量、正确率 95% 以上、速度贴近阶段目标，
+     * 三条里掉一条都到不了。想放宽就调 [POWER_TARGET_RATIO]。
+     */
+    fun powerTarget(stage: StageConfig): Int =
+        (maxPower(stage) * POWER_TARGET_RATIO).toInt()
+
+    /** 该阶段算力的理论上限（正确率满分 + 速度满分 + 题量难度满分） */
+    fun maxPower(stage: StageConfig): Double =
+        450.0 + 150.0 + 400.0 * (stage.weight / 2.3).coerceAtMost(1.0)
 
     val playerId: String
         get() {
@@ -145,6 +174,9 @@ class Settings(context: Context) {
 
         const val UNLOCK_MIN_QUESTIONS = 20
         const val UNLOCK_MIN_ACCURACY = 85.0
+
+        /** 解锁要求的算力 = 阶段理论上限 × 这个比例（越高越难） */
+        const val POWER_TARGET_RATIO = 0.9
     }
 
     /** 关闭「解锁全部」时，回到默认的 s1~s3 */
