@@ -54,6 +54,22 @@
             android:textSize="15sp" />
 
         <TextView
+            android:id="@+id/btnRecords"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:background="@drawable/selector_key"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingStart="16dp"
+            android:paddingTop="7dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="7dp"
+            android:text="📊 各难度战绩"
+            android:textColor="@color/text"
+            android:textSize="15sp" />
+
+        <TextView
             android:id="@+id/btnAchievements"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

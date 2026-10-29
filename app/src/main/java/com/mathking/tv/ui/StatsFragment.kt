@@ -30,10 +30,14 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentStatsBinding.bind(view)
+        // 记录入口：家长最想看的「每档练了几次、最好/最差、每题多快」都在这里
+        b.btnRecords.setOnClickListener {
+            (activity as? com.mathking.tv.MainActivity)?.navigate(StageMapFragment())
+        }
         b.btnAchievements.setOnClickListener {
             (activity as? com.mathking.tv.MainActivity)?.navigate(AchievementsFragment())
         }
-        b.btnAchievements.requestFocus()
+        b.btnRecords.requestFocus()
         load()
     }
 
@@ -65,9 +69,9 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         val rank = Analytics.rank(power)
 
         b.tvPower.text = "算力 ${power.toInt()}"
-        b.tvRank.text = "${rank.badge} ${rank.name}"
+        b.tvRank.text = rank.name
         b.tvRank.setTextColor(Ui.color(ctx, rank.color))
-        b.tvSummary.text = "累计 ${o.questions} 题 · 正确率 ${Fmt.pct(o.accuracy)} · 平均 ${Fmt.sec(o.avgSeconds)} 秒/题"
+        b.tvSummary.text = "累计 ${o.questions} 题 · ${Fmt.sec(o.avgSeconds)} 秒/题"
 
         // 正确率曲线（没有练习的天断点）
         val labels = data.daily30.map { it.day.substring(5).replace("-", "/") }
