@@ -42,7 +42,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="选中一道题停 1 秒，自动讲解思路；按 ✓ 暂停或继续"
+        android:text="选中一道题停 0.8 秒，自动讲解思路；按 ✓ 暂停或继续"
         android:textColor="@color/text_dim"
         android:textSize="16sp" />
 

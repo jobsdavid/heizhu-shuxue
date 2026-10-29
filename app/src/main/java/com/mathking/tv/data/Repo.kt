@@ -278,7 +278,7 @@ class Repo(context: Context, userId: Long = 0L) {
         var scoreN = 0
         db.rawQuery(
             "SELECT mode, COUNT(*), MIN(score), MAX(score), AVG(score) FROM session " +
-                "WHERE finished=1 AND stage_id=? GROUP BY mode",
+                "WHERE finished=1 AND stage_id=? AND total>0 GROUP BY mode",
             arrayOf(stageId)
         ).use { c ->
             while (c.moveToNext()) {
@@ -288,11 +288,11 @@ class Repo(context: Context, userId: Long = 0L) {
                     "challenge" -> challenge += c.getInt(1)
                 }
                 if (c.getInt(1) > 0) {
-                    val lo = c.getDouble(2)
-                    val hi = c.getDouble(3)
+                    val lo = c.getDouble(2)   // 该模式最低分
+                    val hi = c.getDouble(3)   // 该模式最高分
                     val avg = c.getDouble(4)
-                    if (scoreN == 0 || lo < best) best = lo
-                    if (scoreN == 0 || hi > worst) worst = hi
+                    if (scoreN == 0 || hi > best) best = hi
+                    if (scoreN == 0 || lo < worst) worst = lo
                     scoreSum += avg * c.getInt(1)
                     scoreN += c.getInt(1)
                 }
@@ -488,7 +488,8 @@ class Repo(context: Context, userId: Long = 0L) {
         ).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
 
         val startsAfter = if (unlockAt == null) 0 else db.rawQuery(
-            "SELECT COUNT(*) FROM session WHERE stage_id=? AND mode='challenge' AND started_at > ?",
+            "SELECT COUNT(*) FROM session WHERE stage_id=? AND mode='challenge' " +
+                "AND started_at>? AND total>0",
             arrayOf(stage.id, unlockAt.toString())
         ).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 

@@ -49,11 +49,17 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
 
         val all = StageCatalog.available
         val half = (all.size + 1) / 2
+        var focusRow: View? = null
         all.forEachIndexed { i, stage ->
             val row = buildRow(app, stage, i)
             val col = if (i < half) b.colLeft else b.colRight
             col.addView(row)
+            // 进来就把焦点放在「正在练」的那一档：遥控器直接按 OK 就能看详情，
+            // 不然孩子按 OK 没反应，以为坏了
+            if (stage.id == app.settings.stageId) focusRow = row
         }
+        val target = focusRow ?: b.colLeft.getChildAt(0)
+        target?.post { target.requestFocus() }
     }
 
     private fun buildRow(app: App, stage: StageConfig, index: Int): View {
