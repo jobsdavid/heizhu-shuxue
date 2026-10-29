@@ -47,11 +47,11 @@ object Analytics {
      * 名字和算力数字都用同一档的颜色，家长一眼看出「到哪一级了」。
      */
     fun rank(power: Double): Rank = when {
-        power >= 900 -> Rank(6, "数学大王", "🏆", R.color.accent, MAX_POWER)
-        power >= 750 -> Rank(5, "数学大师", "👑", R.color.purple, 900.0)
-        power >= 600 -> Rank(4, "数学高手", "🐗", R.color.blue, 750.0)
-        power >= 450 -> Rank(3, "数学能手", "🐖", R.color.green, 600.0)
-        power >= 300 -> Rank(2, "数学小将", "🐽", R.color.accent, 450.0)
-        else -> Rank(1, "数学小学徒", "🐷", R.color.text_dim, 300.0)
+        power >= 900 -> Rank(6, "数学大王", "", R.color.red, MAX_POWER)
+        power >= 750 -> Rank(5, "数学大师", "", R.color.accent, 900.0)
+        power >= 600 -> Rank(4, "数学高手", "", R.color.purple, 750.0)
+        power >= 450 -> Rank(3, "数学能手", "", R.color.green, 600.0)
+        power >= 300 -> Rank(2, "数学小将", "", R.color.blue, 450.0)
+        else -> Rank(1, "数学小学徒", "", R.color.text_dim, 300.0)
     }
 }

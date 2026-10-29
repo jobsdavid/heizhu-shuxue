@@ -1,6 +1,7 @@
 package com.mathking.tv.ui
 
 import android.graphics.BitmapFactory
+import android.graphics.drawable.GradientDrawable
 import android.graphics.Outline
 import android.os.Bundle
 import android.util.TypedValue
@@ -189,24 +190,16 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             applyAvatar(app.settings)
             b.tvRankName.text = app.settings.userName.ifBlank { "小朋友" }
             b.tvRankName.setTextColor(Ui.color(requireContext(), rank.color))
-            // 等级徽章（猪头随段位换）、等级名、分数三处同色。
-            // 孩子传了照片头像时，徽章缩成右下角的小角标，两个都看得见
-            b.tvRankBadge.text = rank.badge
-            b.tvRankBadge.alpha = 1f
-            b.tvRankBadge.bringToFront()
-            b.tvRankBadge.background = ContextCompat.getDrawable(requireContext(), R.drawable.bg_pill)
-            b.tvRankBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (app.settings.avatarImage.isNotBlank()) 15f else 26f)
-            (b.tvRankBadge.layoutParams as? android.widget.FrameLayout.LayoutParams)?.apply {
-                gravity = if (app.settings.avatarImage.isNotBlank())
-                    (Gravity.END or Gravity.BOTTOM) else Gravity.CENTER
-                width = Ui.dp(requireContext(), if (app.settings.avatarImage.isNotBlank()) 26f else 44f)
-                height = Ui.dp(requireContext(), if (app.settings.avatarImage.isNotBlank()) 26f else 44f)
-                b.tvRankBadge.layoutParams = this
+            // 不用猪头徽章了（丑）：改成给名字区描边，等级越高边框颜色不同
+            b.tvRankBadge.visibility = View.GONE
+            val rankColor = Ui.color(requireContext(), rank.color)
+            b.rankBox.background = GradientDrawable().apply {
+                cornerRadius = Ui.dp(requireContext(), 18f).toFloat()
+                setColor(Ui.color(requireContext(), R.color.card))
+                setStroke(Ui.dp(requireContext(), 2.5f), rankColor)
             }
-            // 徽章直接写进副标题：孩子传了照片头像时角标会被压住，写文字永远看得见
-            // 等级写清楚：Lv.3 · 段位名 · 算力，外加对应猪头徽章
-            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 算力 ${power.toInt()} ${rank.badge}"
-            b.tvPower.setTextColor(Ui.color(requireContext(), rank.color))
+            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 算力 ${power.toInt()}"
+            b.tvPower.setTextColor(rankColor)
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"
             b.tvTodayAccuracy.text =
