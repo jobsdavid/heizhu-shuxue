@@ -46,12 +46,16 @@
         android:textColor="@color/text_dim"
         android:textSize="16sp" />
 
+    <!-- clipChildren 显式打开：根布局为了焦点放大关掉了裁剪，
+         这里必须自己再关回去，否则列表会画到下面的按钮行上 -->
     <ScrollView
         android:id="@+id/scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="10dp"
         android:layout_weight="1"
+        android:clipChildren="true"
+        android:clipToPadding="true"
         android:scrollbars="none">
 
         <LinearLayout
@@ -76,6 +80,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
+        android:background="@color/bg"
         android:clipChildren="false"
         android:clipToPadding="false"
         android:gravity="center"
