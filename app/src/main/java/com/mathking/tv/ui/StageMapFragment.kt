@@ -197,8 +197,10 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
                 sb.append("\n单场得分：最好 ${rep.bestScore.toInt()} · 最差 ${rep.worstScore.toInt()}")
                 sb.append(" · 平均 ${rep.avgScore.toInt()}")
             }
-            sb.append("\n每题用时：最快 ${rep.fastestMs}ms · 最慢 ${rep.slowestMs}ms")
-            sb.append(" · 平均 ${rep.avgMs}ms（共 ${rep.attempts} 题）")
+            // 毫秒对家长没概念，统一换成秒（一位小数）
+            fun sec(ms: Long) = String.format("%.1f", ms / 1000.0)
+            sb.append("\n每题用时：最快 ${sec(rep.fastestMs)} 秒 · 最慢 ${sec(rep.slowestMs)} 秒")
+            sb.append(" · 平均 ${sec(rep.avgMs)} 秒（共 ${rep.attempts} 题）")
         }
 
         if (!unlocked && prev != null && prevStats != null) {
