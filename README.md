@@ -55,6 +55,13 @@ cd ~/kids-tv
 # 产物：app/build/outputs/apk/debug/app-debug.apk
 ```
 
+跑单测（词表覆盖 / 朗读文案 / 挑战次数 / 解锁门槛，改完语音或规则务必跑一遍）：
+
+```bash
+~/tools/gradle-8.7/bin/gradle :app:testDebugUnitTest
+# 报告：app/build/reports/tests/testDebugUnitTest/index.html
+```
+
 安装到电视（需先在电视开发者选项里打开 ADB 调试）：
 
 ```bash
