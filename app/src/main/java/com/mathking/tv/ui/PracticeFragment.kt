@@ -137,7 +137,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         wrongId = arguments?.getLong(ARG_WRONG_ID, 0L) ?: 0L
 
         KeypadBuilder.build(b.keypad, R.id.btnRepeat) { onKey(it) }
-        b.tvStage.text = "${stage.name} · ${if (dailyDay != null) "每日挑战" else mode.label}"
+        b.tvStage.text = "S${StageCatalog.indexOf(stage) + 1} · ${stage.name} · " +
+            (if (dailyDay != null) "每日挑战" else mode.label)
         b.tvTimer.visibility =
             if (mode == PlayMode.TIMED || mode == PlayMode.EXAM) View.VISIBLE else View.GONE
         b.btnRepeat.setOnClickListener { speakQuestion(manual = true) }

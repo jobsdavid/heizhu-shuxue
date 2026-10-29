@@ -79,7 +79,7 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
             val idx = StageCatalog.indexOf(unlocked)
             b.unlockBox.visibility = android.view.View.VISIBLE
             b.tvUnlockName.text = unlocked.name
-            b.tvUnlockTip.text = "第 ${idx + 1} 阶 · ${unlocked.tip}"
+            b.tvUnlockTip.text = "S${idx + 1} · ${unlocked.tip}"
             b.btnGoNext.setOnClickListener {
                 app.settings.stageId = unlocked.id
                 act.goHome()

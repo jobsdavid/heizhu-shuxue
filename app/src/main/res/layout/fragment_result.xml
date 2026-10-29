@@ -112,7 +112,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="🎉 解锁新阶段"
+            android:text="🎉 解锁新难度"
             android:textColor="@color/accent"
             android:textSize="16sp" />
 
@@ -132,7 +132,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:text="第 4 阶 · 两位数综合"
+            android:text="S4 · 两位数综合"
             android:textColor="@color/text_dim"
             android:textSize="13sp" />
 

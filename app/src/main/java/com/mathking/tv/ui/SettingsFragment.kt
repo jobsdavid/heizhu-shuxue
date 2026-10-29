@@ -50,14 +50,14 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
         // 焦点走到哪一行就说哪一行的说明，否则会一直挂着上一次操作的提示
         listOf(
             b.rowProfile to "点开可以改名字和头像",
-            b.rowStage to "按 OK 打开阶段地图，左右键快速切换",
+            b.rowStage to "按 OK 打开难度列表（S1~S12），左右键快速切换",
             b.rowCount to "每轮出几道题（考试固定 20 题）",
             b.rowMode to "练习卡用哪种方式：不限时 / 限时",
             b.rowStyle to "出什么题：计算 / 找错 / 填空 / 混着来",
             b.rowSpeed to "朗读速度，左右切换会试听",
             b.rowSound to "答对答错的提示音",
             b.rowSpeak to "是否自动朗读题目",
-            b.rowUnlock to "家长开关：一键解锁全部阶段",
+            b.rowUnlock to "家长开关：一键解锁全部难度",
             b.rowClear to "清空练习记录和错题，不可恢复"
         ).forEach { (row, hint) ->
             row.setOnFocusChangeListener { _, hasFocus ->
@@ -112,7 +112,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
     private fun refresh() {
         val stage = StageCatalog.byId(app.settings.stageId)
         b.tvProfile.text = "${app.settings.avatar} ${app.settings.userName.ifBlank { "小朋友" }}"
-        b.tvStage.text = "第 ${StageCatalog.indexOf(stage) + 1} 阶 · ${stage.name}"
+        b.tvStage.text = "S${StageCatalog.indexOf(stage) + 1} · ${stage.name}"
         b.tvCount.text = "${app.settings.questionCount} 题"
         b.tvMode.text = when (app.settings.mode) {
             PlayMode.TIMED -> "练习 · 限时"
@@ -227,7 +227,7 @@ class SettingsFragment : Fragment(R.layout.fragment_settings) {
             b.tvTip.text = "已关闭全部解锁，回到按成绩解锁"
         } else {
             app.settings.unlockAll()
-            b.tvTip.text = "已解锁全部阶段（家长开关）"
+            b.tvTip.text = "已解锁全部难度（家长开关）"
         }
         refresh()
     }

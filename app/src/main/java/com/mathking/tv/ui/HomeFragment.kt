@@ -58,27 +58,18 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentHomeBinding.bind(view)
         Ui.focusZoom(
-            b.cardPractice, b.cardExam, b.cardChallenge, b.cardDaily,
+            b.btnStage, b.cardPractice, b.cardExam, b.cardChallenge, b.cardDaily,
             b.btnWrong, b.btnStats, b.btnSettings, b.rankBox
         )
+
+        // 换难度走独立入口：打开难度地图，点某一阶看详情/切过去
+        b.btnStage.setOnClickListener {
+            (activity as? MainActivity)?.navigate(StageMapFragment())
+        }
 
         b.rankBox.setOnClickListener {
             ProfileDialog(requireActivity(), onChanged = { refresh() }).show()
         }
-
-        // 左右键在已解锁的难度之间切换（不用进设置）
-        val stageKey = View.OnKeyListener { _, code, event ->
-            if (event.action != KeyEvent.ACTION_DOWN) return@OnKeyListener false
-            val delta = when (code) {
-                KeyEvent.KEYCODE_DPAD_LEFT -> -1
-                KeyEvent.KEYCODE_DPAD_RIGHT -> 1
-                else -> return@OnKeyListener false
-            }
-            switchStage(delta)
-            true
-        }
-        b.cardPractice.setOnKeyListener(stageKey)
-        b.cardExam.setOnKeyListener(stageKey)
 
         b.cardPractice.setOnClickListener {
             val s = App.of(requireContext()).settings
@@ -166,30 +157,13 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         }
     }
 
-    /** ← → 在当前已解锁的难度里换一个（设置页仍可改，两条路不冲突） */
-    private fun switchStage(delta: Int) {
-        val s = App.of(requireContext()).settings
-        val unlocked = StageCatalog.available.filter { s.isUnlocked(it.id) }
-        if (unlocked.size <= 1) return
-        val idx = unlocked.indexOfFirst { it.id == s.stageId }.coerceAtLeast(0)
-        val next = unlocked[(idx + delta + unlocked.size) % unlocked.size]
-        if (next.id == s.stageId) return
-        s.stageId = next.id
-        Sfx.tick()
-        refresh()
-    }
-
     private fun refresh() {
         val app = App.of(requireContext())
         val stage = StageCatalog.byId(app.settings.stageId)
         val stageNo = StageCatalog.indexOf(stage) + 1
-        val unlockedCount = StageCatalog.available.count { app.settings.isUnlocked(it.id) }
-        b.tvPracticeInfo.text = if (unlockedCount > 1) {
-            "‹ 第 $stageNo 阶 · ${stage.name} ›"   // 左右键换难度
-        } else {
-            "第 $stageNo 阶 · ${stage.name}"
-        }
-        b.tvExamInfo.text = "第 $stageNo 阶 · 20 题"
+        b.btnStage.text = "难度   S$stageNo · ${stage.name}   ›"
+        b.tvPracticeInfo.text = "S$stageNo · ${stage.name}"
+        b.tvExamInfo.text = "S$stageNo · 20 题"
         b.tvSettingsInfo.text = ""
 
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -230,7 +204,8 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 b.tvRankBadge.layoutParams = this
             }
             // 徽章直接写进副标题：孩子传了照片头像时角标会被压住，写文字永远看得见
-            b.tvPower.text = "${rank.badge} ${rank.name} · 算力 ${power.toInt()}"
+            // 等级写清楚：Lv.3 · 段位名 · 算力，外加对应猪头徽章
+            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 算力 ${power.toInt()} ${rank.badge}"
             b.tvPower.setTextColor(Ui.color(requireContext(), rank.color))
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"
@@ -284,7 +259,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 data.stageOverall.avgSeconds, stagePower
             )
             b.tvPracticeMode.text = when {
-                progress != null -> "解锁下一阶段：${progress.missingText}"
+                progress != null -> "解锁下一难度：${progress.missingText}"
                 else -> "${app.settings.questionCount} 题 · " +
                     if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }

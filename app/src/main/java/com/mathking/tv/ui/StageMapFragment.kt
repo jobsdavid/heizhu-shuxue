@@ -36,9 +36,9 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentStagesBinding.bind(view)
         b.tvStageHint.text =
-            "练满 ${Settings.UNLOCK_MIN_QUESTIONS} 题、正确率 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}%，" +
-                "并且平均每题用时达到该阶段目标速度，才会解锁下一阶段；" +
-                "家长也可以在设置里开「解锁全部阶段」"
+            "在任一难度练满 ${Settings.UNLOCK_MIN_QUESTIONS} 题、正确率 " +
+                "${Settings.UNLOCK_MIN_ACCURACY.toInt()}%、平均每题达到目标速度、算力达标，" +
+                "才会解锁下一个难度；家长也可以在设置里开「解锁全部难度」"
         render()
     }
 
@@ -115,7 +115,7 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
         }
 
         row.addView(TextView(ctx).apply {
-            text = "${index + 1}"
+            text = "S${index + 1}"
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             setTextColor(Ui.color(ctx, R.color.accent))
             gravity = Gravity.CENTER
@@ -170,7 +170,7 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
         val prev = StageCatalog.available.getOrNull(index - 1)
         val prevStats = if (prev != null) app.repo.overall(prev.id) else null
 
-        dialog.findViewById<TextView>(R.id.tvStageTitle).text = "s${index + 1} · ${stage.name}"
+        dialog.findViewById<TextView>(R.id.tvStageTitle).text = "S${index + 1} · ${stage.name}"
         dialog.findViewById<TextView>(R.id.tvStageSub).text = subtip(stage)
         dialog.findViewById<TextView>(R.id.tvStageDetail).text =
             stage.detail.ifBlank { stage.tip }
@@ -213,7 +213,7 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
         val close = dialog.findViewById<TextView>(R.id.btnStageClose)
         when {
             current -> {
-                start.text = "正在练这一阶"
+                start.text = "正在练这个难度"
                 start.isEnabled = false
                 start.alpha = 0.45f
             }

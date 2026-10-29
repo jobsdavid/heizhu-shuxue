@@ -14,7 +14,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="学习阶段"
+        android:text="难度一览"
         android:textColor="@color/accent"
         android:textSize="30sp"
         android:textStyle="bold" />
@@ -24,7 +24,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="在当前阶段练满 20 题、正确率 85%，自动解锁下一阶段"
+        android:text="练满 20 题、正确率 95%、速度达标、算力达标，自动解锁下一难度"
         android:textColor="@color/text_dim"
         android:textSize="13sp" />
 
@@ -62,7 +62,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="方向键选 · OK 切换阶段 · 返回键回设置"
+        android:text="方向键选 · OK 查看详情 / 切到这个难度 · 返回键回上一页"
         android:textColor="@color/text_dim"
         android:textSize="12sp" />
 </LinearLayout>
