@@ -1,5 +1,6 @@
 package com.mathking.tv.ui
 
+import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.Gravity
 import android.widget.GridLayout
@@ -25,8 +26,10 @@ object KeypadBuilder {
                 gravity = Gravity.CENTER
                 setTextSize(
                     TypedValue.COMPLEX_UNIT_SP,
-                    if (label == "⌫" || label == "✓") 28f else 34f
+                    if (label == "⌫" || label == "✓") 28f else 36f
                 )
+                // 电视离得远，细体数字糊成一片，全部加粗
+                typeface = Typeface.DEFAULT_BOLD
                 setTextColor(colors)
                 background = template?.constantState?.newDrawable()?.mutate()
                 isFocusable = true

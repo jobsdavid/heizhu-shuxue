@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.os.Handler
 import android.os.Looper
+import com.mathking.tv.audio.Speech
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -177,31 +178,57 @@ class Repo(context: Context) {
         }
     }
 
-    /** 从错题本里抽一道题用于重练 */
-    fun wrongQuestions(stageId: String? = null, limit: Int = 30): List<Question> {
-        return wrongItems(stageId, includeMastered = false).take(limit).map { e ->
-            Question(
-                text = e.expr,
-                answer = e.answer.substringBefore("/").toIntOrNull() ?: 0,
-                tag = e.tag,
-                answerText = e.answer,
-                speak = toSpeak(e.expr),
-                findError = e.expr.contains("=")
+    /** 按 id 取一条错题（错题本里「只练这道」用） */
+    fun wrongItem(id: Long): WrongEntry? {
+        helper.readableDatabase.rawQuery(
+            "SELECT id, stage_id, expr, answer, wrong_count, streak, mastered, tag " +
+                "FROM wrong_item WHERE id=?",
+            arrayOf(id.toString())
+        ).use { c ->
+            if (!c.moveToFirst()) return null
+            return WrongEntry(
+                id = c.getLong(0),
+                stageId = c.getString(1),
+                expr = c.getString(2),
+                answer = c.getString(3),
+                wrongCount = c.getInt(4),
+                streak = c.getInt(5),
+                mastered = c.getInt(6) == 1,
+                tag = c.getString(7) ?: "错题"
             )
         }
     }
 
-    private fun toSpeak(expr: String): String {
-        // 把算式转成中文读法；找错题（含 =）读成「… 这道题有错误，正确答案是几」
-        val hasEq = expr.contains("=")
-        var s = expr.substringBefore("=")
-            .replace("+", " 加 ").replace("−", " 减 ")
-            .replace("×", " 乘 ").replace("÷", " 除以 ")
-        s = Regex("(\\d+)/(\\d+)").replace(s) { m ->
-            "${Generator.cn(m.groupValues[2].toInt())}分之${Generator.cn(m.groupValues[1].toInt())}"
-        }
-        s = s.replace(Regex("\\s+"), " ").trim()
-        return if (hasEq) "$s 这道题有错误 正确答案是几" else "$s 等于几"
+    fun wrongQuestionById(id: Long): Question? = wrongItem(id)?.let { questionOf(it) }
+
+    /** 从错题本里抽题用于重练 */
+    fun wrongQuestions(stageId: String? = null, limit: Int = 30): List<Question> {
+        return wrongItems(stageId, includeMastered = false).take(limit).map { questionOf(it) }
+    }
+
+    /**
+     * 错题条目 → 可直接出题的 Question。
+     *
+     * 分数题必须把分母带回来（答案存的是 "5/6"），否则答案框不会显示 ?/6，
+     * 孩子不知道该填分子——这是错题重练「看着能点但没法答」的元凶。
+     */
+    fun questionOf(e: WrongEntry): Question {
+        val den = e.answer.substringAfter("/", "").toIntOrNull() ?: 0
+        val num = e.answer.substringBefore("/").toIntOrNull() ?: 0
+        val isFraction = den > 0
+        val speak = Speech.expression(e.expr) + if (isFraction) "，答案只填分子" else ""
+        return Question(
+            text = e.expr,
+            answer = num,
+            tag = e.tag,
+            answerText = e.answer,
+            speak = speak,
+            hint = Speech.hintForTag(e.tag),
+            speakHint = Speech.hintForTag(e.tag),
+            findError = e.expr.contains("="),
+            answerDen = if (isFraction) den else 0,
+            stageId = e.stageId
+        )
     }
 
     // ------------------------------------------------------------ 统计

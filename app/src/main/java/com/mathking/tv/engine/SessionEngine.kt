@@ -95,13 +95,14 @@ class SessionEngine(
             val rec = AttemptRecord(index, q, value, first, attemptCount, ms)
             records.add(rec)
             repo.saveAttempt(sessionId, rec)
-            if (mode == PlayMode.WRONG) repo.markWrongRight(stage.id, q)
+            // 用题目自己的阶段：错题重练里可能混着别的阶段的题
+            if (mode == PlayMode.WRONG) repo.markWrongRight(q.stageId.ifBlank { stage.id }, q)
             questionDone = true
             SubmitResult(true, false, false, combo, q, isLast)
         } else {
             // 第一次没答对就记进错题本：一直卡着答不对的题，恰恰是最该复习的。
             // 之前只在「答错后又答对」时才记，导致卡死的题永远进不了错题本。
-            if (attemptCount == 1) repo.upsertWrong(stage.id, q)
+            if (attemptCount == 1) repo.upsertWrong(q.stageId.ifBlank { stage.id }, q)
             if (attemptCount >= MAX_ATTEMPTS) {
                 // 同一个坑摔三次就别耗着了：记一笔、进错题本、跳过去，
                 // 免得孩子卡在那里把整轮练习都放弃掉
@@ -119,7 +120,7 @@ class SessionEngine(
                 val rec = AttemptRecord(index, q, value, false, attemptCount, ms, timedOut)
                 records.add(rec)
                 repo.saveAttempt(sessionId, rec)
-                repo.upsertWrong(stage.id, q)
+                repo.upsertWrong(q.stageId.ifBlank { stage.id }, q)
                 questionDone = true
                 SubmitResult(false, false, timedOut, 0, q, isLast)
             }

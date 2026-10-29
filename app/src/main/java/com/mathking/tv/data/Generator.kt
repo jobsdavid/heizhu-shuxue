@@ -62,13 +62,16 @@ object Generator {
             wrongAnswer(q.answer, rnd)
         }
         val wrongText = if (q.answerDen > 0) "$wrong/${q.answerDen}" else wrong.toString()
-        val stem = q.speak.removeSuffix("等于几").trim()
+        // 题面结尾是「等于几」，找错题要把它换成陈述的「等于 五」，否则念出来像在提问
+        val stem = q.speak.removeSuffix("，答案只填分子").removeSuffix("等于几").trim()
+        val spokenWrong = if (q.answerDen > 0) "${cn(q.answerDen)}分之${cn(wrong)}" else cn(wrong)
         return q.copy(
             text = "${q.text} = $wrongText",
             tag = "找错·${q.tag}",
-            speak = if (q.speak.isBlank()) "" else "$stem 等于 ${cn(wrong)} 这道题有错误 正确答案是几",
+            speak = if (q.speak.isBlank()) "" else "$stem 等于 $spokenWrong 这道题有错误 正确答案是几",
             findError = true,
-            hint = "这道题有错误，重新算一遍，填正确答案"
+            hint = "这道题有错误，重新算一遍，填正确答案",
+            speakHint = "这道题算错了，重新算一遍，填正确答案"
         )
     }
 
@@ -117,7 +120,8 @@ object Generator {
                 answer = a,
                 tag = "填空·$opSym",
                 speak = "括号里填几：括号 ${op.speak} ${cn(b)} 等于 ${cn(c)}",
-                hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(b)}"
+                hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(b)}",
+                speakHint = if (op == Op.MUL) "倒着想，用除法算" else "倒着想，用减法算"
             )
         } else {
             Question(
@@ -127,7 +131,8 @@ object Generator {
                 speak = "括号里填几：${cn(a)} ${op.speak} 括号 等于 ${cn(c)}",
                 hint = if (op == Op.SUB) "倒着想：${cn(a)} 减 ${cn(c)}"
                 else if (op == Op.DIV) "倒着想：${cn(a)} 除以 ${cn(c)}"
-                else "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(a)}"
+                else "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(a)}",
+                speakHint = if (op == Op.DIV) "倒着想，用除法算" else "倒着想，用减法算"
             )
         }
     }
@@ -199,7 +204,8 @@ object Generator {
             answer = a + b,
             tag = if (carry) "进位加" else "不进位加",
             speak = "${cn(a)} 加 ${cn(b)} 等于几",
-            hint = if (carry) "个位满十，记得向十位进一" else ""
+            hint = if (carry) "个位满十，记得向十位进一" else "",
+            speakHint = if (carry) "个位满十，向十位进一" else ""
         )
     }
 
@@ -230,7 +236,8 @@ object Generator {
             answer = a - b,
             tag = if (borrow) "退位减" else "不退位减",
             speak = "${cn(a)} 减 ${cn(b)} 等于几",
-            hint = if (borrow) "个位不够减，向十位借一当十" else ""
+            hint = if (borrow) "个位不够减，向十位借一当十" else "",
+            speakHint = if (borrow) "个位不够减，向十位借一当十" else ""
         )
     }
 
@@ -246,7 +253,8 @@ object Generator {
                 answer = a * b,
                 tag = "表内乘",
                 speak = "${cn(a)} 乘 ${cn(b)} 等于几",
-                hint = "想乘法口诀"
+                hint = "想乘法口诀",
+                speakHint = "想一想乘法口诀"
             )
         } else {
             val a = rnd.nextInt(10, stage.maxValue + 1)
@@ -259,7 +267,8 @@ object Generator {
                 tag = "两位数乘一位数",
                 speak = "${cn(a)} 乘 ${cn(b)} 等于几",
                 hint = if (ones == 0) "先算 ${tens} × ${b}"
-                else "先算 ${tens} × ${b} = ${tens * b}，再算 ${ones} × ${b} = ${ones * b}"
+                else "先算 ${tens} × ${b} = ${tens * b}，再算 ${ones} × ${b} = ${ones * b}",
+                speakHint = "先把两位数拆成整十和个位，分别乘，再加起来"
             )
         }
     }
@@ -275,7 +284,8 @@ object Generator {
                 answer = q,
                 tag = "表内除",
                 speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
-                hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}"
+                hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}",
+                speakHint = "除法想乘法，几乘几等于它"
             )
         } else {
             // 三位数 ÷ 一位数，整除
@@ -288,7 +298,8 @@ object Generator {
                 answer = q,
                 tag = "三位数除一位数",
                 speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
-                hint = "从最高位开始除，除到哪一位，商就写在哪一位上"
+                hint = "从最高位开始除，除到哪一位，商就写在哪一位上",
+                speakHint = "除法想乘法，几乘几等于它"
             )
         }
     }
@@ -297,12 +308,17 @@ object Generator {
 
     private fun fourOps(stage: StageConfig, rnd: Random): Question {
         return when (stage.ops[rnd.nextInt(stage.ops.size)]) {
-            Op.ADD -> addQ(stage, rnd)
-            Op.SUB -> subQ(stage, rnd)
+            Op.ADD -> addQ(stage, rnd).copy(speakHint = "先看清运算符号，再动手算")
+            Op.SUB -> subQ(stage, rnd).copy(speakHint = "先看清运算符号，再动手算")
             Op.MUL -> {
                 val a = rnd.nextInt(2, 10)
                 val b = rnd.nextInt(2, 10)
-                Question("$a × $b", a * b, "表内乘", speak = "${cn(a)} 乘 ${cn(b)} 等于几", hint = "先背口诀")
+                Question(
+                    "$a × $b", a * b, "表内乘",
+                    speak = "${cn(a)} 乘 ${cn(b)} 等于几",
+                    hint = "先背口诀",
+                    speakHint = "想一想乘法口诀"
+                )
             }
             Op.DIV -> {
                 val b = rnd.nextInt(2, 10)
@@ -310,7 +326,8 @@ object Generator {
                 Question(
                     "${b * q} ÷ $b", q, "表内除",
                     speak = "${cn(b * q)} 除以 ${cn(b)} 等于几",
-                    hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}"
+                    hint = "想：几乘 ${cn(b)} 等于 ${cn(b * q)}",
+                    speakHint = "除法想乘法，几乘几等于它"
                 )
             }
         }
@@ -332,9 +349,9 @@ object Generator {
                 answer = n1 + n2,
                 tag = "同分母加",
                 answerText = "${n1 + n2}/$d",
-                // 分数不朗读（电视语音包是按整数念的，念分数反而听不懂）
-                speak = "",
+                speak = "${fraction(n1, d)} 加 ${fraction(n2, d)} 等于几，答案只填分子",
                 hint = "分母不变，分子相加：$n1 + $n2 = ?",
+                speakHint = "分母不变，分子相加减",
                 answerDen = d
             )
         } else {
@@ -345,8 +362,9 @@ object Generator {
                 answer = n1 - n2,
                 tag = "同分母减",
                 answerText = "${n1 - n2}/$d",
-                speak = "",
+                speak = "${fraction(n1, d)} 减 ${fraction(n2, d)} 等于几，答案只填分子",
                 hint = "分母不变，分子相减：$n1 − $n2 = ?",
+                speakHint = "分母不变，分子相加减",
                 answerDen = d
             )
         }
@@ -378,8 +396,9 @@ object Generator {
                 answer = n1Big + n2,
                 tag = "异分母加",
                 answerText = "${n1Big + n2}/$big",
-                speak = "",
+                speak = "${fraction(n1, small)} 加 ${fraction(n2, big)} 等于几，答案只填分子",
                 hint = "把 $n1/$small 通分成 $n1Big/$big，再算分子 $n1Big + $n2",
+                speakHint = "先通分，变成同分母再算",
                 answerDen = big
             )
         } else {
@@ -392,8 +411,9 @@ object Generator {
                 answer = n1Big - n2,
                 tag = "异分母减",
                 answerText = "${n1Big - n2}/$big",
-                speak = "",
+                speak = "${fraction(n1, small)} 减 ${fraction(n2, big)} 等于几，答案只填分子",
                 hint = "把 $n1/$small 通分成 $n1Big/$big，再算分子 $n1Big − $n2",
+                speakHint = "先通分，变成同分母再算",
                 answerDen = big
             )
         }
@@ -401,6 +421,15 @@ object Generator {
 
     // ------------------------------------------------------------ 朗读用中文数字
 
+    /** a/b 的朗读写法：「五分之二」 */
+    fun fraction(num: Int, den: Int): String = "${cn(den)}分之${cn(num)}"
+
+    /**
+     * 整数 → 中文读法。
+     *
+     * 注意 110 这种：十位是 1 必须读「一百一十」，不能读「一百十」——
+     * 老版本直接拼 cn(10)="十"，念出来是「一百十」，一年级孩子听着别扭。
+     */
     fun cn(n: Int): String {
         val digits = "零一二三四五六七八九"
         if (n < 0) return n.toString()
@@ -415,7 +444,25 @@ object Generator {
         if (n < 1000) {
             val h = n / 100
             val rest = n % 100
-            return digits[h].toString() + "百" + if (rest == 0) "" else (if (rest < 10) "零" else "") + cn(rest)
+            val sb = StringBuilder().append(digits[h]).append("百")
+            when {
+                rest == 0 -> Unit
+                rest < 10 -> sb.append("零").append(digits[rest])
+                rest < 20 -> sb.append("一").append(cn(rest))
+                else -> sb.append(cn(rest))
+            }
+            return sb.toString()
+        }
+        if (n < 10000) {
+            val th = n / 1000
+            val rest = n % 1000
+            val sb = StringBuilder().append(digits[th]).append("千")
+            when {
+                rest == 0 -> Unit
+                rest < 100 -> sb.append("零").append(cn(rest))
+                else -> sb.append(cn(rest))
+            }
+            return sb.toString()
         }
         return n.toString()
     }

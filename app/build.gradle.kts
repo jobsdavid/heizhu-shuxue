@@ -83,4 +83,8 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.0")
     // 只用到 core 生成二维码，不引 android 版
     implementation("com.google.zxing:core:3.5.3")
+
+    // 朗读词表覆盖测试：org.json 在单测里默认是空实现，得补一个真的
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

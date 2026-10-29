@@ -3,6 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_page"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:gravity="center"
     android:orientation="vertical"
     android:paddingStart="48dp"
@@ -184,11 +186,14 @@
         android:textSize="17sp"
         android:textStyle="bold" />
 
+    <!-- 错题列表吃掉剩余空间：以前固定 100dp，内容一多就把「再来一轮」挤出屏幕 -->
     <ScrollView
         android:id="@+id/wrongScroll"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="0dp"
         android:layout_marginTop="2dp"
+        android:layout_weight="1"
+        android:minHeight="60dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -198,10 +203,13 @@
             android:orientation="vertical" />
     </ScrollView>
 
+    <!-- clipChildren=false：焦点放大会把按钮描边撑出父容器，默认裁剪会把边框吃掉一半 -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -237,4 +245,16 @@
             android:textColor="@color/text"
             android:textSize="22sp" />
     </LinearLayout>
+
+    <!-- 刚播报的那句话，家长也能对照着看 -->
+    <TextView
+        android:id="@+id/tvSpeakHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:maxLines="2"
+        android:text=""
+        android:textColor="@color/text_dim"
+        android:textSize="13sp" />
 </LinearLayout>

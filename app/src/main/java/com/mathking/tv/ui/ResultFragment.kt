@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
 import com.mathking.tv.R
+import com.mathking.tv.audio.Speech
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.databinding.FragmentResultBinding
@@ -146,6 +147,19 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
         b.btnHome.setOnClickListener { act.goHome() }
         Ui.focusZoom(b.btnAgain, b.btnHome, b.btnGoNext, b.btnLater)
         if (unlocked == null) b.btnAgain.requestFocus()
+
+        // 一局结束时把成绩和建议念出来：孩子不一定会看这一屏的小字。
+        // 同一句话也放一行小字在页面上，家长能看到娃听到了什么。
+        val spoken = Speech.result(
+            summary.mode, summary.total, summary.correctFirst, summary.stars, summary.accuracy
+        )
+        b.tvSpeakHint.text = spoken
+        app.speaker.speak(spoken, 1.0f * app.settings.speechScale)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (isAdded) App.of(requireContext()).speaker.stop()
     }
 
     override fun onDestroyView() {

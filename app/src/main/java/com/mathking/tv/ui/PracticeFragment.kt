@@ -6,18 +6,16 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.TypedValue
-import android.view.Gravity
-import android.view.ViewGroup
 import android.view.View
-import android.widget.GridLayout
+import android.view.ViewGroup
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
 import com.mathking.tv.R
 import com.mathking.tv.audio.Sfx
+import com.mathking.tv.audio.Speech
 import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.Question
 import com.mathking.tv.data.QuestionStyle
@@ -29,6 +27,20 @@ import com.mathking.tv.stats.Analytics
 import com.mathking.tv.ui.text.MathText
 import com.mathking.tv.util.Ui
 
+/**
+ * 答题页（练习 / 限时 / 考试 / 错题重练公用）。
+ *
+ * 交互只认三个状态，别再散着写：
+ *   ANSWERING 可以输入 → LOCKED 刚提交、正在播反馈 → ADVANCING 翻页中
+ *
+ * 几个踩过的坑，改的时候别踩回去：
+ * 1. **提交后别清空输入**：清了就会在播「回答正确」的时候把答案变回「?」，
+ *    孩子以为自己的答案被吞了。数字留到下一题 render() 再清。
+ * 2. **考试模式不能自动提交**：原来「填满正确答案就 160ms 自动交」，
+ *    等于答对了立刻翻页、答错了反而停住——孩子一眼就看穿对错了。
+ * 3. **反馈语音不播完不换题**：否则「回答正确」永远读半句就被下一题打断。
+ * 4. **不要往页面上写程序状态**（比如「已记录」）：只给孩子看有意义的字。
+ */
 class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
 
     companion object {
@@ -38,14 +50,29 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         private const val ARG_WRONG = "wrong"
         private const val ARG_SEED = "seed"
         private const val ARG_DAILY = "daily"
+        private const val ARG_WRONG_ID = "wrong_id"
 
+        /** 一个答案最多 3 位（s8 两位数乘一位数最大 891，s9 三位数除法最大 499） */
+        private const val MAX_DIGITS = 3
+
+        /** 练习模式发呆多久重读一次题 */
+        private const val IDLE_MS = 10_000L
+
+        /** 一题最多主动重读几次，再多就变成骚扰了 */
+        private const val IDLE_MAX = 2
+
+        /**
+         * wrongId > 0 时只练这一道错题（错题本里「只练这道」），
+         * 不传就是按 wrongOnly 决定「练全部错题」还是正常出题。
+         */
         fun newInstance(
             stageId: String,
             modeId: String,
             count: Int,
             wrongOnly: Boolean,
             seed: Long = 0L,
-            dailyDay: String? = null
+            dailyDay: String? = null,
+            wrongId: Long = 0L
         ) = PracticeFragment().apply {
             arguments = Bundle().apply {
                 putString(ARG_STAGE, stageId)
@@ -54,9 +81,14 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 putBoolean(ARG_WRONG, wrongOnly)
                 putLong(ARG_SEED, seed)
                 putString(ARG_DAILY, dailyDay)
+                putLong(ARG_WRONG_ID, wrongId)
             }
         }
     }
+
+    private enum class Phase { ANSWERING, LOCKED, ADVANCING, DONE }
+
+    private enum class AnswerState { NORMAL, OK, BAD }
 
     private var _b: FragmentPracticeBinding? = null
     private val b get() = _b!!
@@ -68,22 +100,29 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private var wrongOnly = false
     private var seed = 0L
     private var dailyDay: String? = null
+    private var wrongId = 0L
 
-    /** 跳过提示的语音还在播时，别让新题的朗读把它打断 */
-    private var suppressSpeakOnce = false
-
-    /** 跳过提示要留到下一题上，不然 200ms 就切走了孩子根本看不见 */
-    private var skipTipPending: String? = null
+    /** 上一题跳过后要留在下一题页面上的说明 */
+    private var pendingTip: String? = null
 
     private var engine: SessionEngine? = null
     private val input = StringBuilder()
     private var sessionId = 0L
     private var finished = false
 
+    private var phase = Phase.ANSWERING
+
+    /** 上一题答错后输入框里还留着旧答案：下一个数字要重新开始，别拼在旧的后面 */
+    private var freshEntry = false
+
     private val handler = Handler(Looper.getMainLooper())
     private var remaining = 0
     private var tickRunnable: Runnable? = null
     private var examStartedAt = 0L
+    private var autoTask: Runnable? = null
+    private var advanceTask: Runnable? = null
+    private var idleTask: Runnable? = null
+    private var idleCount = 0
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         _b = FragmentPracticeBinding.bind(view)
@@ -94,8 +133,9 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         wrongOnly = arguments?.getBoolean(ARG_WRONG) ?: false
         seed = arguments?.getLong(ARG_SEED, 0L) ?: 0L
         dailyDay = arguments?.getString(ARG_DAILY)
+        wrongId = arguments?.getLong(ARG_WRONG_ID, 0L) ?: 0L
 
-        buildKeypad()
+        KeypadBuilder.build(b.keypad, R.id.btnRepeat) { onKey(it) }
         b.tvStage.text = "${stage.name} · ${if (dailyDay != null) "每日挑战" else mode.label}"
         b.tvTimer.visibility =
             if (mode == PlayMode.TIMED || mode == PlayMode.EXAM) View.VISIBLE else View.GONE
@@ -110,91 +150,75 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             }
         )
         b.tvKeyHint.text = when (mode) {
-            PlayMode.EXAM -> "考试模式：答完统一判卷"
+            PlayMode.EXAM -> "考试模式：每题按 ✓ 交卷，答完统一判卷"
             PlayMode.TIMED -> "限时模式：答错或超时会直接下一题"
             else -> "答对了才进入下一题"
         }
         startSession()
     }
 
-    // ------------------------------------------------------------ 建键盘
-
-    private fun buildKeypad() {
-        val grid = b.keypad
-        grid.removeAllViews()
-        val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓")
-        val margin = Ui.dp(requireContext(), 4f)
-        val colors = ContextCompat.getColorStateList(requireContext(), R.color.key_text)
-        val bg = ContextCompat.getDrawable(requireContext(), R.drawable.selector_key)
-        keys.forEachIndexed { i, label ->
-            val key = TextView(requireContext()).apply {
-                text = label
-                gravity = Gravity.CENTER
-                setTextSize(
-                    TypedValue.COMPLEX_UNIT_SP,
-                    if (label == "⌫" || label == "✓") 28f else 34f
-                )
-                setTextColor(colors)
-                background = bg?.constantState?.newDrawable()?.mutate()
-                isFocusable = true
-                isClickable = true
-                setOnClickListener { onKey(label) }
-                isSoundEffectsEnabled = false
-                if (i / 3 == 3) nextFocusDownId = R.id.btnRepeat
-            }
-            val lp = GridLayout.LayoutParams(
-                GridLayout.spec(i / 3, 1f),
-                GridLayout.spec(i % 3, 1f)
-            ).apply {
-                width = 0
-                height = 0
-                setMargins(margin, margin, margin, margin)
-            }
-            grid.addView(key, lp)
-        }
-    }
+    // ------------------------------------------------------------ 输入
 
     private fun onKey(label: String) {
         when (label) {
-            "⌫" -> {
-                if (input.isNotEmpty()) input.deleteCharAt(input.length - 1)
-                updateAnswer()
-            }
+            "⌫" -> backspace()
             "✓" -> submitAnswer()
             else -> appendDigit(label)
         }
     }
 
-    override fun backspace() {
-        if (finished) return
-        if (input.isNotEmpty()) input.deleteCharAt(input.length - 1)
-        updateAnswer()
-    }
-
     override fun appendDigit(d: String) {
-        if (finished || input.length >= 3) return
+        if (finished || phase != Phase.ANSWERING) return
+        if (freshEntry) {
+            input.clear()
+            freshEntry = false
+            setAnswerState(AnswerState.NORMAL)
+            b.tvFeedback.text = ""
+        }
+        if (input.length >= MAX_DIGITS) return
         input.append(d)
         updateAnswer()
-        autoCheck()
+        resetIdle()
+        scheduleAutoCheck()
+    }
+
+    override fun backspace() {
+        if (finished || phase != Phase.ANSWERING) return
+        if (input.isNotEmpty()) {
+            input.deleteCharAt(input.length - 1)
+            updateAnswer()
+            resetIdle()
+            scheduleAutoCheck()
+        }
     }
 
     /**
-     * 少按一次确认键：
-     * - 输入的数字正好等于答案 → 直接算作答对
-     * - 位数已经超过答案位数 → 1.5 秒后按错误提交（期间按 ⌫ 还能改）
+     * 少按一次确认键（限时 / 练习 / 错题重练）：
+     * - 数字正好等于答案 → 150ms 后自动交
+     * - 位数已经比答案长 → 1.4 秒后按错误交（期间按 ⌫ 还能改）
+     * 考试模式一律不自动交，否则「答对自动翻页」等于泄题。
      */
-    private fun autoCheck() {
+    private fun scheduleAutoCheck() {
+        cancelAuto()
+        if (mode == PlayMode.EXAM) return
         val q = engine?.question ?: return
         val text = input.toString()
         val value = text.toIntOrNull() ?: return
-        when {
-            value == q.answer -> handler.postDelayed({
-                if (!finished && input.toString() == text) submitAnswer()
-            }, 160)
-            text.length > q.answer.toString().length -> handler.postDelayed({
-                if (!finished && input.toString() == text) submitAnswer()
-            }, 1500)
+        val delay = when {
+            value == q.answer -> 150L
+            text.length > q.answer.toString().length -> 1400L
+            else -> return
         }
+        val task = Runnable {
+            if (phase == Phase.ANSWERING && input.toString() == text) submitAnswer()
+        }
+        autoTask = task
+        handler.postDelayed(task, delay)
+    }
+
+    private fun cancelAuto() {
+        autoTask?.let { handler.removeCallbacks(it) }
+        autoTask = null
     }
 
     private fun updateAnswer() {
@@ -215,15 +239,42 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         }
     }
 
+    /** 答案框的三种状态：正常金色、答对绿色、答错红色 */
+    private fun setAnswerState(state: AnswerState) {
+        if (_b == null) return
+        val ctx = requireContext()
+        val (drawable, colorRes) = when (state) {
+            AnswerState.OK -> R.drawable.bg_answer_box_ok to R.color.green
+            AnswerState.BAD -> R.drawable.bg_answer_box_bad to R.color.red
+            AnswerState.NORMAL -> R.drawable.bg_answer_box to R.color.accent
+        }
+        b.answerBox.setBackgroundResource(drawable)
+        val color = Ui.color(ctx, colorRes)
+        b.tvAnswer.setTextColor(color)
+        b.tvFracNum.setTextColor(color)
+        b.tvFracDen.setTextColor(color)
+        b.fracBar.setBackgroundColor(color)
+    }
+
     // ------------------------------------------------------------ 会话
 
     private fun startSession() {
-        if (wrongOnly) {
+        if (wrongId > 0) {
+            app.repo.async({ app.repo.wrongQuestionById(wrongId)?.let { listOf(it) } }) { questions ->
+                if (!isAdded || _b == null) return@async
+                if (questions == null) {
+                    b.tvQuestion.text = "这道错题不见了"
+                    return@async
+                }
+                openSession(questions)
+            }
+        } else if (wrongOnly) {
             app.repo.async({ app.repo.wrongQuestions(null, count) }) { questions ->
-                if (!isAdded) return@async
+                if (!isAdded || _b == null) return@async
                 if (questions.isEmpty()) {
                     b.tvQuestion.text = "没有错题"
                     b.tvKeyHint.text = "先去练几轮，错题会自动收进来"
+                    b.btnRepeat.alpha = 0.35f
                     return@async
                 }
                 openSession(questions)
@@ -248,15 +299,18 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 stage, mode, planned, id, app.repo, pre,
                 QuestionStyle.of(app.settings.questionStyle), seed
             )
-            render()
+            render(animate = false)
             speakQuestion()
             b.keypad.getChildAt(4)?.requestFocus()
         }
     }
 
-    private fun render() {
+    private fun render(animate: Boolean) {
         val e = engine ?: return
         val q = e.question ?: return
+        phase = Phase.ANSWERING
+        freshEntry = false
+        cancelAuto()
         b.tvProgress.text = "第 ${e.index + 1}/${e.total} 题"
         b.progressBar.max = e.total
         b.progressBar.progress = e.index
@@ -277,38 +331,29 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             })
         }
         b.tvFeedback.text = ""
-        skipTipPending?.let { tip ->
-            b.tvFeedback.text = tip
-            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.accent))
+        b.tvHint.text = if (q.findError) "这道题有错误，填正确答案" else ""
+        b.tvHint.setTextColor(
+            Ui.color(requireContext(), if (q.findError) R.color.accent else R.color.text_dim)
+        )
+        pendingTip?.let { tip ->
+            b.tvHint.text = tip
+            b.tvHint.setTextColor(Ui.color(requireContext(), R.color.text_dim))
             val shown = tip
             handler.postDelayed({
-                if (_b != null && b.tvFeedback.text == shown) b.tvFeedback.text = ""
-            }, 2200)
-            skipTipPending = null
+                if (_b != null && b.tvHint.text == shown) b.tvHint.text = ""
+            }, 2600)
+            pendingTip = null
         }
-        b.tvHint.text = if (q.findError) "这道题有错误，填正确答案" else ""
-        // 分数题不朗读，按钮弱化，免得娃按了没反应以为坏了
-        b.btnRepeat.alpha = if (q.speak.isBlank()) 0.35f else 1f
-        b.tvHint.setTextColor(Ui.color(requireContext(), if (q.findError) R.color.accent else R.color.text_dim))
         input.clear()
+        setAnswerState(AnswerState.NORMAL)
         updateAnswer()
         b.keypad.getChildAt(4)?.requestFocus()   // 每题都把焦点放回 5，少按几下方向键
         startTimerForQuestion()
+        resetIdle()
+        if (animate) Ui.pageTurn(b.questionBox)
     }
 
-    private fun sayFeedback(text: String) {
-        app.speaker.speak(text, modeRate() * app.settings.speechScale)
-    }
-
-    /** manual=true 是孩子主动按「再读一遍」，没语音时给个说明；自动朗读时别覆盖题目提示 */
-    private fun speakQuestion(manual: Boolean = false) {
-        val q = engine?.question ?: return
-        if (q.speak.isBlank()) {
-            if (manual) b.tvHint.text = "这道题没有朗读，直接看图算"
-            return
-        }
-        app.speaker.speak(q.speak, modeRate() * app.settings.speechScale)
-    }
+    private fun rate(): Float = modeRate() * app.settings.speechScale
 
     private fun modeRate(): Float = when (mode) {
         PlayMode.PRACTICE -> 0.95f
@@ -318,7 +363,17 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         PlayMode.CHALLENGE -> 1.1f
     }
 
-    // ------------------------------------------------------------ 计时
+    /** manual=true 是孩子主动按「再读一遍」，没语音时给个说明 */
+    private fun speakQuestion(manual: Boolean = false) {
+        val q = engine?.question ?: return
+        if (q.speak.isBlank()) {
+            if (manual) b.tvHint.text = "这道题没有朗读，直接看图算"
+            return
+        }
+        app.speaker.speak(q.speak, rate())
+    }
+
+    // ------------------------------------------------------------ 计时 / 发呆
 
     private fun startTimerForQuestion() {
         stopTimer()
@@ -373,84 +428,165 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         tickRunnable = null
     }
 
+    private fun idleEnabled(): Boolean = mode == PlayMode.PRACTICE || mode == PlayMode.WRONG
+
+    private fun resetIdle() {
+        stopIdle()
+        idleCount = 0
+        postIdle()
+    }
+
+    private fun postIdle() {
+        if (!idleEnabled() || finished) return
+        stopIdle()
+        val task = Runnable { onIdle() }
+        idleTask = task
+        handler.postDelayed(task, IDLE_MS)
+    }
+
+    private fun stopIdle() {
+        idleTask?.let { handler.removeCallbacks(it) }
+        idleTask = null
+    }
+
+    /**
+     * 10 秒没动静：再把题读一遍并给思路提示，最多 2 次。
+     * 一年级孩子不会主动求助，卡住就发呆，得有人推一把。
+     */
+    private fun onIdle() {
+        if (!isAdded || _b == null || finished || phase != Phase.ANSWERING) return
+        if (idleCount >= IDLE_MAX) return
+        val q = engine?.question ?: return
+        idleCount++
+        val prompt = Speech.idlePrompt(idleCount)
+        val text = if (q.speak.isBlank()) prompt else "$prompt，${q.speak}"
+        app.speaker.speak(text, rate())
+        if (q.hint.isNotBlank()) {
+            b.tvHint.text = "小提示：${q.hint}"
+            b.tvHint.setTextColor(Ui.color(requireContext(), R.color.accent))
+        }
+        if (idleCount == 1) {
+            b.tvFeedback.text = "还没想好？再听一遍题目"
+            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.text_dim))
+        }
+        if (idleCount < IDLE_MAX) postIdle()
+    }
+
     private fun onTimeout() {
         val e = engine ?: return
-        if (finished) return
-        e.submit(null, timedOut = true) ?: return
+        if (finished || phase != Phase.ANSWERING) return
+        val r = e.submit(null, timedOut = true) ?: return
+        cancelAuto()
+        stopIdle()
+        phase = Phase.LOCKED
         Sfx.wrong()
-        sayFeedback("时间到")
-        input.clear()
-        updateAnswer()
+        setAnswerState(AnswerState.BAD)
         b.tvFeedback.text = "时间到，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-        nextOrFinish(700)
+        app.speaker.speak(Speech.timedOutWithAnswer(r.question), rate()) { advanceAfter(360) }
     }
+
+    // ------------------------------------------------------------ 提交
 
     private fun submitAnswer() {
         val e = engine ?: return
-        if (finished || e.question == null) return
+        if (finished || phase != Phase.ANSWERING) return
         val text = input.toString()
         if (text.isEmpty()) return
         val value = text.toIntOrNull() ?: return
-        val result = e.submit(value) ?: return
-        input.clear()
-        updateAnswer()
-
-        if (mode == PlayMode.EXAM) {
-            b.tvFeedback.text = if (result.last) "交卷中…" else "已记录"
-            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.text_dim))
-            nextOrFinish(if (result.last) 300 else 220)
-            return
-        }
-
-        if (result.correct) {
-            Sfx.correct()
-            sayFeedback("回答正确")
-            if (result.combo >= 3) {
-                Sfx.combo(result.combo)
-                b.tvFeedback.text = "回答正确！${result.combo} 连击"
-            } else {
-                b.tvFeedback.text = "回答正确！"
-            }
-            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
-            nextOrFinish(950)
-        } else if (result.skipped) {
-            Sfx.wrong()
-            // 快速告诉孩子该补哪块：优先用这道题的知识点提示
-            val tip = result.question.hint.ifBlank { "这题多练两遍就熟了" }
-            app.speaker.speak("这题先跳过。$tip", 1.55f * app.settings.speechScale)
-            skipTipPending = "答错 3 次，这题跳过 · 已记进错题本"
-            suppressSpeakOnce = true
-            nextOrFinish(200)
-        } else if (result.retry) {
-            Sfx.wrong()
-            sayFeedback("回答错误")
-            b.tvFeedback.text = "回答错误，再算一遍"
-            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-            if (result.question.hint.isNotBlank()) {
-                b.tvHint.text = "小提示：${result.question.hint}"
-            }
-        } else {
-            Sfx.wrong()
-            sayFeedback(if (result.timedOut) "时间到" else "回答错误")
-            b.tvFeedback.text =
-                if (result.timedOut) "时间到，下一题" else "回答错误，正确答案是 ${result.question.answerText}"
-            b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-            nextOrFinish(1200)
+        val r = e.submit(value) ?: return
+        cancelAuto()
+        stopIdle()
+        phase = Phase.LOCKED
+        when {
+            mode == PlayMode.EXAM -> onExamSubmitted()
+            r.correct -> onCorrect(r)
+            r.skipped -> onSkipped(r)
+            r.retry -> onRetry(r)
+            else -> onWrongGoNext(r)
         }
     }
 
-    private fun nextOrFinish(delay: Long) {
+    /** 考试：不透露对错，收到就翻页（连「已记录」这种字都不写） */
+    private fun onExamSubmitted() {
+        Sfx.tick()
+        setAnswerState(AnswerState.NORMAL)
+        advanceAfter(280)
+    }
+
+    private fun onCorrect(r: SessionEngine.SubmitResult) {
+        Sfx.correct()
+        setAnswerState(AnswerState.OK)
+        if (r.combo >= 3) {
+            Sfx.combo(r.combo)
+            b.tvFeedback.text = "回答正确！${r.combo} 连击"
+        } else {
+            b.tvFeedback.text = "回答正确！"
+        }
+        b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
+        app.speaker.speak(Speech.CORRECT, rate()) { advanceAfter(340) }
+    }
+
+    /** 连错到上限：跳过这题，把思路留到下一题的提示行上 */
+    private fun onSkipped(r: SessionEngine.SubmitResult) {
+        Sfx.wrong()
+        setAnswerState(AnswerState.BAD)
+        b.tvFeedback.text = "这题先跳过，下一题"
+        b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.accent))
+        pendingTip = "上一题先跳过：${r.question.hint.ifBlank { "回头在错题本里再练" }}"
+        app.speaker.speak(Speech.skipped(r.question), rate()) { advanceAfter(320) }
+    }
+
+    /**
+     * 练习 / 错题重练答错：停在本题，语音给思路。
+     * 输入框里的错答案先留着（红框），孩子一按数字就重新开始——别偷偷清空。
+     */
+    private fun onRetry(r: SessionEngine.SubmitResult) {
+        Sfx.wrong()
+        setAnswerState(AnswerState.BAD)
+        b.tvFeedback.text = "回答错误，再算一遍"
+        b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
+        if (r.question.hint.isNotBlank()) {
+            b.tvHint.text = "小提示：${r.question.hint}"
+            b.tvHint.setTextColor(Ui.color(requireContext(), R.color.accent))
+        }
+        phase = Phase.ANSWERING
+        freshEntry = true
+        resetIdle()
+        app.speaker.speak(Speech.retryWrong(r.question), rate())
+    }
+
+    /** 限时 / 其它不重算的模式：报答案，然后下一题 */
+    private fun onWrongGoNext(r: SessionEngine.SubmitResult) {
+        Sfx.wrong()
+        setAnswerState(AnswerState.BAD)
+        b.tvFeedback.text =
+            if (r.timedOut) "时间到，下一题" else "回答错误，正确答案是 ${r.question.answerText}"
+        b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
+        val say = if (r.timedOut) Speech.timedOutWithAnswer(r.question)
+        else Speech.wrongWithAnswer(r.question)
+        app.speaker.speak(say, rate()) { advanceAfter(360) }
+    }
+
+    private fun advanceAfter(delay: Long) {
+        if (finished || _b == null) return
+        phase = Phase.ADVANCING
+        advanceTask?.let { handler.removeCallbacks(it) }
+        val task = Runnable { advanceNow() }
+        advanceTask = task
+        handler.postDelayed(task, delay)
+    }
+
+    private fun advanceNow() {
+        if (!isAdded || _b == null || finished) return
         val e = engine ?: return
         if (e.isLast) {
-            handler.postDelayed({ finishSession(true) }, delay)
+            finishSession(true)
         } else {
-            handler.postDelayed({
-                if (!isAdded || _b == null) return@postDelayed
-                e.advance()
-                render()
-                if (suppressSpeakOnce) suppressSpeakOnce = false else speakQuestion()
-            }, delay)
+            e.advance()
+            render(animate = true)
+            speakQuestion()
+            b.keypad.getChildAt(4)?.requestFocus()
         }
     }
 
@@ -461,11 +597,12 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun showQuitDialog() {
         if (quitDialog?.isShowing == true || finished) return
         stopTimer()
+        stopIdle()
         val done = engine?.records?.size ?: 0
         val dialog = Dialog(requireContext(), R.style.Theme_MathKing_Dialog)
         dialog.setContentView(R.layout.dialog_quit)
         dialog.setCancelable(true)
-        dialog.findViewById<android.widget.TextView>(R.id.tvQuitHint)?.text = if (done == 0) {
+        dialog.findViewById<TextView>(R.id.tvQuitHint)?.text = if (done == 0) {
             "这一轮还没做题，退出不会留下记录"
         } else {
             "已经做了 $done 题，退出后这一轮不计入成长曲线"
@@ -492,8 +629,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     }
 
     private fun resumeTimer() {
+        if (finished) return
         if (mode == PlayMode.TIMED && remaining > 0) tick()
         if (mode == PlayMode.EXAM) tick()
+        postIdle()
     }
 
     private fun quit() {
@@ -506,7 +645,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         if (finished) return
         val e = engine ?: return
         finished = true
+        phase = Phase.DONE
         stopTimer()
+        stopIdle()
+        cancelAuto()
         app.speaker.stop()
         val summary = e.summary(false)
         app.repo.async({
@@ -520,7 +662,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun finishSession(finishedOk: Boolean) {
         if (finished) return
         finished = true
+        phase = Phase.DONE
         stopTimer()
+        stopIdle()
+        cancelAuto()
         app.speaker.stop()
         val e = engine ?: return
         val summary = e.summary(finishedOk)
@@ -559,6 +704,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
 
     override fun onDestroyView() {
         stopTimer()
+        stopIdle()
+        cancelAuto()
+        advanceTask?.let { handler.removeCallbacks(it) }
+        advanceTask = null
         handler.removeCallbacksAndMessages(null)
         savePartial()
         app.speaker.stop()

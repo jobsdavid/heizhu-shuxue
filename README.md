@@ -100,19 +100,35 @@ cd ~/kids-tv
 
 电视上没有中文 TTS 引擎（实测小米电视 `tts_default_synth = null`），所以题目朗读用内置音频拼接。
 
-音频源在 `app/src/main/assets/voice/`：
-- `*.mp3`：edge-tts 生成的原件（zh-CN-XiaoxiaoNeural）
-- `raw/*.raw`：转成 22050Hz 单声道 16bit 裸 PCM，运行时按 token 拼成整句播放（数字之间零间隙，符号前留 200ms）
+词表在 **`app/src/main/assets/voice/lexicon.json`**，一份数据两头用：
 
-重新生成（venv 在项目内，不污染系统）：
+```json
+{ "token": "等于", "file": "dengyu", "text": "等于" }
+```
+
+- `token`：App 里写的朗读片段（`Generator`/`Speech` 拼句子用这个）
+- `file`：`assets/voice/raw/<file>.raw`，22050Hz 单声道 16bit 裸 PCM
+- `text`：交给 edge-tts 的原文（带标点，让断句自然）
+
+**加新词只改 json，然后重生成音频**（venv 在项目内，不污染系统）：
 
 ```bash
 cd ~/kids-tv
-.venv/bin/edge-tts --voice zh-CN-XiaoxiaoNeural --text "三" --write-media app/src/main/assets/voice/san.mp3
-ffmpeg -i app/src/main/assets/voice/san.mp3 \
-  -af "silenceremove=start_periods=1:start_silence=0.005:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_silence=0.005:start_threshold=-50dB,areverse" \
-  -ar 22050 -ac 1 -f s16le app/src/main/assets/voice/raw/san.raw
+.venv/bin/python tools/gen_voice.py          # 只补缺的
+.venv/bin/python tools/gen_voice.py --force  # 全部重生成
+.venv/bin/python tools/gen_voice.py --check  # 体检：词表每条都有音频吗
 ```
+
+**踩过的坑（别踩回去）**
+
+1. 朗读是「按词拼音频」，词表里没有的字会被**静默丢掉**。历史上「等于」「括号」就是这么没的，
+   导致找错题不读等号、填空题只念「加 五 等于 十二」。
+   现在 `SpeechLexicon.uncovered()` 会报出漏读的字，`SpeechCoverageTest` 直接断言它为空，
+   覆盖所有阶段 × 题型 × 结算播报。改朗读文案后一定先跑 `gradle testDebugUnitTest`。
+2. 判断语音包在不在，**别用** `assets.list("voice/raw").size`：部分构建产出的 APK 没有目录条目，
+   会返回空数组，于是整包语音被判「不存在」、静默退回系统 TTS（电视上等于没声音）。
+   现在直接尝试打开词表里第一个文件。
+3. 数字要先转中文：`Speech.expression("2 + 5")` 必须给「二 加 五」，直接塞阿拉伯数字会被吞掉。
 
 ## 五、代码结构
 
@@ -130,10 +146,19 @@ app/src/main/java/com/mathking/tv/
 │   └── ProfilePresets.kt  头像与预设昵称（电视和手机网页共用）
 ├── engine/SessionEngine.kt 一局的答题状态机（三种模式的差异都收在这里）
 ├── audio/                 语音包（PCM 拼接）与音效（正弦波合成）
+│   ├── SpeechLexicon.kt   词表加载 + 分词（缺字会报 uncovered）
+│   ├── VoicePack.kt       PCM 拼接播放，支持暂停/续播
+│   ├── Speaker.kt         对外接口：speak(text, rate, then) 说完再回调
+│   └── Speech.kt          所有「念给孩子听」的句子都在这拼
 ├── net/                   手机扫码用的局域网表单服务（手写 HTTP）
 ├── stats/                 算力公式、段位、成就判定
 ├── ui/                    首页/练习/挑战/结果/错题本/统计/设置/成就/我的资料
 └── util/                  dp、焦点动画、格式化
+
+tools/                     可复现的素材生成脚本（不在 APK 里）
+├── gen_voice.py           语音包：改 lexicon.json 后跑它
+├── gen_icon.py            App 图标：mipmap 各尺寸 + 自适应前景
+└── gen_banner.py          电视桌面横幅 tv_banner
 ```
 
 ## 六、首页结构
@@ -185,14 +210,23 @@ app/src/main/java/com/mathking/tv/
 - 错题重练保留原始知识点，不记成「错题重练」
 - 首次答对才算「做对」；重答正确只让错题本计一次 streak
 
-## 十、卡住就过
+## 九点五、答题页的交互约定（改之前先读）
 
-同一道题连错 3 次，程序会：
-1. 用 1.55 倍速念一句该补的知识点（「这题先跳过。个位不够减，向十位借一当十」）
-2. 200ms 后自动切到下一题——不让孩子卡死在一道题上
-3. 新题上用黄字留 2 秒：「答错 3 次，这题跳过 · 已记进错题本」
+一局答题只有三个状态：`ANSWERING`（能输入）→ `LOCKED`（刚提交，正在播反馈）→ `ADVANCING`（翻页中）。
 
-答案框里记的是 3 次尝试、首次未答对，所以这题一定会出现在错题本里。
+| 场景 | 现在的行为 | 为什么 |
+|------|------------|--------|
+| 提交答案 | **不清空输入框**，数字留着，答对绿框 / 答错红框 | 清了会在播「回答正确」时把答案变回「?」，孩子以为答案被吞了 |
+| 换题 | 题面+答案框从右侧滑入淡入（230ms） | 直接「啪」一下换掉会看不出发生了翻页 |
+| 练习答错 | 停在本题，语音「回答错误 + 该补的思路 + 再算一遍」，输入框留着错答案，一按数字就重新开始 | 一年级孩子不会自己找错因 |
+| 考试 | 每题必须按 ✓，答完**不告诉对错**，也不写「已记录」这类程序状态 | 原来填满正确答案 160ms 就自动翻页，等于泄题 |
+| 连错 3 次 | 跳过这题，把知识点留到下一题的提示行 | 不让孩子卡死在一道题上 |
+| 发呆 10 秒 | 重读题面 + 给思路提示，**最多 2 次** | 推一把，但不唠叨 |
+| 一局结束 | 结果页自动播报：题数、正确数、星数、一句针对性建议 | 孩子不看小字 |
+| 错题本 | 聚焦某题停 **0.8 秒**自动讲解（题面→答案→思路）；换题立刻掐断上一条语音；按 ✓ 暂停/继续 | 想停下来自己想 |
+| 语音播报 | 反馈语音**播完才换题**（`Speaker.speak(text, rate, then)`） | 否则「回答正确」永远读半句就被下一题打断 |
+
+连错 3 次那题记的是 3 次尝试、首次未答对，所以一定会出现在错题本里。
 
 ## 十一、关于 / 数据备份
 

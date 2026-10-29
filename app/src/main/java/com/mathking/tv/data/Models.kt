@@ -68,10 +68,17 @@ data class Question(
     val answerText: String = answer.toString(),
     val speak: String = "",
     val hint: String = "",
+    /** 答错时要念出来的思路（必须是语音词表里有的整句），空 = 用通用提示 */
+    val speakHint: String = "",
     /** true = 找错题：题面是一个算错的式子，要填正确答案 */
     val findError: Boolean = false,
     /** >0 表示答案是分数：孩子只填分子，分母固定显示（如 4 → 答案框显示 ?/4） */
-    val answerDen: Int = 0
+    val answerDen: Int = 0,
+    /**
+     * 这道题属于哪个阶段。错题本里的题可能来自别的阶段，
+     * 结算时必须用这个 id 去更新错题 streak，否则在 A 阶段重练 B 阶段的错题永远「毕业」不了。
+     */
+    val stageId: String = ""
 )
 
 /** 题型：计算 / 找错 / 填空（求括号里的数） / 混合 */

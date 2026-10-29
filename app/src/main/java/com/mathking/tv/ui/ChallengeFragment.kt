@@ -19,6 +19,7 @@ import com.mathking.tv.App
 import com.mathking.tv.MainActivity
 import com.mathking.tv.R
 import com.mathking.tv.audio.Sfx
+import com.mathking.tv.audio.Speech
 import com.mathking.tv.data.AttemptRecord
 import com.mathking.tv.data.Generator
 import com.mathking.tv.data.PlayMode
@@ -187,6 +188,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         computerMs = baselineMs
         questionStart = SystemClock.elapsedRealtime()
         KeypadBuilder.focusCenter(b.keypad)
+        Ui.pageTurn(b.tvQuestion, b.tvAnswer)
         speakQuestion()
         runComputer()
     }
@@ -223,7 +225,11 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         b.tvFeedback.text = "电脑先答完了，这题算电脑赢"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
         Sfx.wrong()
-        sayFeedback(if (timeout) "时间到" else "回答错误")
+        val q = current
+        sayFeedback(
+            if (q == null) (if (timeout) "时间到" else "回答错误")
+            else Speech.timedOutWithAnswer(q)
+        )
         recordAttempt(null, false, timeout)
         handler.postDelayed({ next() }, 1100)
     }
@@ -285,7 +291,8 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         } else {
             computerScore++
             Sfx.wrong()
-            sayFeedback("回答错误")
+            // 报出正确答案再给一句思路：挑战输了也不能白输
+            sayFeedback(Speech.wrongWithAnswer(q))
             b.tvFeedback.text = "答错了，正确答案是 ${q.answerText}"
             b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
             recordAttempt(value, false)
