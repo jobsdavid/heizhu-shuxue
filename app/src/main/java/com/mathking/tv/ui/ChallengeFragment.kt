@@ -67,6 +67,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
     private var answered = false
     private var finished = false
 
+    private var countingDown = false
     private var current: Question? = null
     private var questionStart = 0L
     private var computerMs = 0L
@@ -127,19 +128,27 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
                 b.keypad.visibility = View.GONE
                 return@async
             }
-            // 下限按阶段目标秒数的一半：孩子快到极限时，电脑不至于变成「物理上不可能」
-            val minMs = stage.targetSeconds * 500L
+            // 下限别定太高：原来按目标秒数的一半，50 以内就到 4 秒/题，
+            // 孩子一旦 3 秒就算完，电脑永远追不上，挑战就没意义了。
+            // 现在按目标的 40%（最少 1.5 秒）：既不会「物理上不可能」，也不会白送
+            val minMs = (stage.targetSeconds * 400L).coerceAtLeast(1500L)
             baselineMs = (pace * 0.8).toLong().coerceIn(minMs, 20000L)
             b.tvPace.text = "电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题"
-            buildQuestions()
-            openSession()
+            buildQuestions { openSession() }
         }
     }
 
-    private fun buildQuestions() {
-        questions.clear()
+    /** 挑战的题：一半来自这个阶段最常错的题，一半新出——错的还是那些，才叫对症 */
+    private fun buildQuestions(onReady: () -> Unit) {
         val style = QuestionStyle.of(app.settings.questionStyle)
-        repeat(total) { questions.add(Generator.make(stage, style)) }
+        app.repo.async({
+            app.repo.mixedQuestions(stage, style, total, share = 0.5)
+        }) { list ->
+            if (!isAdded || _b == null) return@async
+            questions.clear()
+            questions.addAll(list)
+            onReady()
+        }
     }
 
     private fun openSession() {
@@ -154,7 +163,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             records.clear()
             times.clear()
             b.tvScore.text = "$displayName 0 : 0 电脑"
-            startQuestion()
+            startCountdown { startQuestion() }
         }
     }
 
@@ -170,7 +179,17 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         answered = false
         input.clear()
         b.tvProgress.text = "第 ${index + 1}/${questions.size} 题"
-        b.tvQuestion.text = q.text
+        if (q.findError && q.text.contains("=")) {
+            val sp = android.text.SpannableString(q.text)
+            sp.setSpan(
+                android.text.style.ForegroundColorSpan(Ui.color(requireContext(), R.color.red)),
+                q.text.indexOf('=') + 1, q.text.length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            b.tvQuestion.text = sp
+        } else {
+            b.tvQuestion.text = q.text
+        }
         b.tvQuestion.setTextSize(
             TypedValue.COMPLEX_UNIT_SP,
             when {
@@ -191,6 +210,37 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         Ui.pageTurn(b.tvQuestion, b.tvAnswer)
         speakQuestion()
         runComputer()
+    }
+
+    /** 开局倒计时：准备好了吗 → 三 → 二 → 一 → 开始（电脑也等「开始」后才跑） */
+    private fun startCountdown(then: () -> Unit) {
+        countingDown = true
+        b.keypad.alpha = 0.2f
+        b.tvAnswer.alpha = 0.2f
+        b.progressComputer.progress = 0
+        b.tvCountdown.text = ""
+        b.tvQuestion.text = Speech.READY
+        b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 72f)
+        b.tvAnswer.text = "?"
+        val rate = 1.1f * app.settings.speechScale
+        app.speaker.speak(Speech.READY, rate)
+        listOf(3, 2, 1).forEachIndexed { i, n ->
+            handler.postDelayed({
+                if (!isAdded || _b == null) return@postDelayed
+                b.tvQuestion.text = n.toString()
+                b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 140f)
+                Sfx.tick()
+                app.speaker.speak(Speech.countdown(n), rate)
+            }, 1100L + i * 950L)
+        }
+        handler.postDelayed({
+            if (!isAdded || _b == null) return@postDelayed
+            countingDown = false
+            b.keypad.alpha = 1f
+            b.tvAnswer.alpha = 1f
+            app.speaker.speak(Speech.GO, rate)
+            then()
+        }, 1100L + 3 * 950L)
     }
 
     private fun runComputer() {
@@ -219,6 +269,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
 
     private fun onComputerWin(timeout: Boolean) {
         if (answered || finished) return
+        quitDialog?.dismiss()
         answered = true
         computerScore++
         b.tvScore.text = "$displayName $myScore : $computerScore 电脑"
@@ -238,7 +289,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
     override fun backspace() { onKey("⌫") }
 
     private fun onKey(label: String) {
-        if (finished || b.resultLayer.visibility == View.VISIBLE || answered) return
+        if (finished || countingDown || b.resultLayer.visibility == View.VISIBLE || answered) return
         when (label) {
             "⌫" -> {
                 if (input.isNotEmpty()) input.deleteCharAt(input.length - 1)
@@ -369,8 +420,7 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         b.resultLayer.visibility = View.GONE
         finished = false
         timer?.cancel()
-        buildQuestions()
-        openSession()
+        buildQuestions { openSession() }
     }
 
     // ------------------------------------------------------------ 其它
@@ -387,13 +437,15 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
 
     private fun showQuitDialog() {
         if (quitDialog?.isShowing == true || finished) return
-        timer?.pause()
+        // 不暂停电脑：以前按返回会把电脑计时暂停，孩子拿它当「思考键」，
+        // 现在弹窗照弹，电脑照跑——想赢就得真快
         val dialog = Dialog(requireContext(), R.style.Theme_MathKing_Dialog)
         dialog.setContentView(R.layout.dialog_quit)
         dialog.setCancelable(true)
         dialog.findViewById<TextView>(R.id.tvQuitTitle)?.text = "要放弃这次挑战吗？"
         dialog.findViewById<TextView>(R.id.tvQuitHint)?.text =
-            "现在是 你 $myScore : $computerScore 电脑，已做的题会计入不完整记录"
+            "现在是 你 $myScore : $computerScore 电脑。" +
+                (if (answered) "" else "注意：电脑还在跑，不会停下来等你。")
         dialog.findViewById<View>(R.id.btnKeep)?.setOnClickListener { dialog.dismiss() }
         dialog.findViewById<View>(R.id.btnQuit)?.setOnClickListener {
             dialog.dismiss()
@@ -402,7 +454,6 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
         }
         dialog.setOnDismissListener {
             quitDialog = null
-            if (!finished && _b != null) timer?.resume()
         }
         dialog.setOnShowListener {
             dialog.findViewById<View>(R.id.btnKeep)?.requestFocus()

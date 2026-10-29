@@ -201,6 +201,39 @@ class Repo(context: Context) {
 
     fun wrongQuestionById(id: Long): Question? = wrongItem(id)?.let { questionOf(it) }
 
+    /**
+     * 考试 / 挑战的出题：先把这个阶段最常错的题塞进去（最多 [share] 比例），
+     * 剩下的再正常出。考的和练的一样、错的还是那些，才叫「对症」。
+     */
+    fun mixedQuestions(
+        stage: StageConfig,
+        style: QuestionStyle,
+        count: Int,
+        share: Double = 0.4,
+        rnd: kotlin.random.Random = kotlin.random.Random.Default
+    ): List<Question> {
+        val wrong = try {
+            wrongQuestions(stage.id, count)
+        } catch (_: Throwable) {
+            emptyList()
+        }
+        val take = (count * share).toInt().coerceIn(0, wrong.size)
+        val out = wrong.shuffled(rnd).take(take).toMutableList()
+        val seen = out.map { it.text }.toHashSet()
+        var guard = 0
+        while (out.size < count && guard < count * 60) {
+            guard++
+            val q = Generator.make(stage, style, rnd)
+            if (seen.add(q.text)) out.add(q)
+        }
+        while (out.size < count) {
+            val q = Generator.make(stage, style, rnd)
+            if (seen.add(q.text)) out.add(q)
+        }
+        // 打散：别让常错题全挤在开头，孩子一眼看穿
+        return out.shuffled(rnd)
+    }
+
     /** 从错题本里抽题用于重练 */
     fun wrongQuestions(stageId: String? = null, limit: Int = 30): List<Question> {
         return wrongItems(stageId, includeMastered = false).take(limit).map { questionOf(it) }
@@ -339,7 +372,7 @@ class Repo(context: Context) {
             """
             SELECT duration_ms, total FROM session
             WHERE finished=1 AND stage_id=? AND total>=5
-              AND correct_first = total AND mode != 'challenge'
+              AND correct_first = total AND mode = 'exam'
             ORDER BY started_at DESC LIMIT ?
             """.trimIndent(),
             arrayOf(stageId, CHALLENGE_FULL_ROUNDS.toString())

@@ -27,6 +27,9 @@
     { "token": "括号里填几", "file": "kuohao_tian", "text": "括号里填几" },
     { "token": "答案只填分子", "file": "tian_fenzi", "text": "答案只填分子" },
 
+    { "token": "准备好了吗", "file": "zhunbei", "text": "准备好了吗？" },
+    { "token": "开始", "file": "kaishi", "text": "开始！" },
+
     { "token": "回答正确", "file": "huida_zq", "text": "回答正确" },
     { "token": "回答错误", "file": "huida_cw", "text": "回答错误" },
     { "token": "再算一遍", "file": "zaisuan", "text": "再算一遍" },

@@ -1,5 +1,6 @@
 package com.mathking.tv.ui
 
+import android.animation.ValueAnimator
 import android.app.Dialog
 import android.os.Bundle
 import android.os.Handler
@@ -290,6 +291,18 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             mode == PlayMode.EXAM -> 20
             else -> count
         }
+        // 考试：四成是这个阶段最常错的题，剩下的正常出
+        if (pre == null && mode == PlayMode.EXAM) {
+            app.repo.async({
+                app.repo.mixedQuestions(
+                    stage, QuestionStyle.of(app.settings.questionStyle), planned, share = 0.4
+                )
+            }) { list ->
+                if (!isAdded || _b == null) return@async
+                openSession(list)
+            }
+            return
+        }
         app.repo.async({
             app.repo.openSession(stage.id, mode, planned, app.settings.playerId)
         }) { id ->
@@ -299,10 +312,47 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 stage, mode, planned, id, app.repo, pre,
                 QuestionStyle.of(app.settings.questionStyle), seed
             )
-            render(animate = false)
-            speakQuestion()
-            b.keypad.getChildAt(4)?.requestFocus()
+            startCountdown {
+                render(animate = false)
+                speakQuestion()
+                b.keypad.getChildAt(4)?.requestFocus()
+            }
         }
+    }
+
+    /**
+     * 开局倒计时：准备好了吗 → 三 → 二 → 一 → 开始。
+     * 倒计时期间锁住输入，考试/限时的计时也从「开始」之后才算。
+     */
+    private fun startCountdown(then: () -> Unit) {
+        phase = Phase.LOCKED
+        b.keypad.alpha = 0.2f
+        b.answerBox.alpha = 0.2f
+        b.tvFeedback.text = ""
+        b.tvHint.text = ""
+        b.tvQuestion.text = Speech.READY
+        b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 72f)
+        b.tvQuestion.minHeight = 0
+        b.tvProgress.text = "准备开始"
+        speakRaw(Speech.READY)
+        val numbers = listOf(3, 2, 1)
+        numbers.forEachIndexed { i, n ->
+            handler.postDelayed({
+                if (!isAdded || _b == null) return@postDelayed
+                b.tvQuestion.text = n.toString()
+                b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 140f)
+                Sfx.tick()
+                speakRaw(Speech.countdown(n))
+            }, 1100L + i * 950L)
+        }
+        handler.postDelayed({
+            if (!isAdded || _b == null) return@postDelayed
+            b.keypad.alpha = 1f
+            b.answerBox.alpha = 1f
+            b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 88f)
+            speakRaw(Speech.GO)
+            then()
+        }, 1100L + 3 * 950L)
     }
 
     private fun render(animate: Boolean) {
@@ -316,7 +366,22 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         b.progressBar.progress = e.index
         // 找错题和填空题的题面里已经有等号了，别再补一个
         val expr = if (q.text.contains("=")) q.text else "${q.text} ="
-        if (MathText.hasFraction(expr)) {
+        if (q.findError && expr.contains("=")) {
+            // 改错题：等号后面那个错的结果标红，孩子一眼看到「哪儿不对」
+            b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, when {
+                expr.length <= 6 -> 88f
+                expr.length <= 10 -> 70f
+                else -> 54f
+            })
+            b.tvQuestion.minHeight = 0
+            val sp = android.text.SpannableString(expr)
+            sp.setSpan(
+                android.text.style.ForegroundColorSpan(Ui.color(requireContext(), R.color.red)),
+                expr.indexOf('=') + 1, expr.length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            b.tvQuestion.text = sp
+        } else if (MathText.hasFraction(expr)) {
             // 分数用上下结构排版，字号压小一点给分数线留空间
             MathText.apply(b.tvQuestion, expr)
             b.tvQuestion.setTextSize(TypedValue.COMPLEX_UNIT_SP, 64f)
@@ -370,7 +435,49 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             if (manual) b.tvHint.text = "这道题没有朗读，直接看图算"
             return
         }
-        app.speaker.speak(q.speak, rate())
+        speakRaw(q.speak)
+    }
+
+    // ------------------------------------------------------------ 语音 + 朗读按钮闪动
+
+    private var pulse: ValueAnimator? = null
+
+    /** 正在朗读时让「再读一遍」按钮呼吸式闪动，孩子一眼看出声音是从这儿来的 */
+    private fun startSpeakPulse() {
+        if (pulse != null || _b == null) return
+        pulse = ValueAnimator.ofFloat(1f, 0.35f).apply {
+            duration = 300
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            addUpdateListener { if (_b != null) b.btnRepeat.alpha = it.animatedValue as Float }
+            start()
+        }
+    }
+
+    private fun stopSpeakPulse() {
+        pulse?.cancel()
+        pulse = null
+        if (_b != null) b.btnRepeat.alpha = 1f
+    }
+
+    /** 只播报，不管后继动作 */
+    private fun speakRaw(text: String) {
+        if (text.isBlank()) return
+        startSpeakPulse()
+        app.speaker.speak(text, rate()) { stopSpeakPulse() }
+    }
+
+    /** 播报 + 说完再做下一件事（换题、翻页都靠它对齐） */
+    private fun say(text: String, then: (() -> Unit)? = null) {
+        if (text.isBlank()) {
+            then?.invoke()
+            return
+        }
+        startSpeakPulse()
+        app.speaker.speak(text, rate()) {
+            stopSpeakPulse()
+            then?.invoke()
+        }
     }
 
     // ------------------------------------------------------------ 计时 / 发呆
@@ -460,7 +567,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         idleCount++
         val prompt = Speech.idlePrompt(idleCount)
         val text = if (q.speak.isBlank()) prompt else "$prompt，${q.speak}"
-        app.speaker.speak(text, rate())
+        speakRaw(text)
         if (q.hint.isNotBlank()) {
             b.tvHint.text = "小提示：${q.hint}"
             b.tvHint.setTextColor(Ui.color(requireContext(), R.color.accent))
@@ -483,7 +590,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         setAnswerState(AnswerState.BAD)
         b.tvFeedback.text = "时间到，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-        app.speaker.speak(Speech.timedOutWithAnswer(r.question), rate()) { advanceAfter(360) }
+        say(Speech.timedOutWithAnswer(r.question)) { advanceAfter(360) }
     }
 
     // ------------------------------------------------------------ 提交
@@ -524,7 +631,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             b.tvFeedback.text = "回答正确！"
         }
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.green))
-        app.speaker.speak(Speech.CORRECT, rate()) { advanceAfter(340) }
+        say(Speech.CORRECT) { advanceAfter(340) }
     }
 
     /** 连错到上限：跳过这题，把思路留到下一题的提示行上 */
@@ -534,7 +641,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         b.tvFeedback.text = "这题先跳过，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.accent))
         pendingTip = "上一题先跳过：${r.question.hint.ifBlank { "回头在错题本里再练" }}"
-        app.speaker.speak(Speech.skipped(r.question), rate()) { advanceAfter(320) }
+        say(Speech.skipped(r.question)) { advanceAfter(320) }
     }
 
     /**
@@ -553,7 +660,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         phase = Phase.ANSWERING
         freshEntry = true
         resetIdle()
-        app.speaker.speak(Speech.retryWrong(r.question), rate())
+        speakRaw(Speech.retryWrong(r.question))
     }
 
     /** 限时 / 其它不重算的模式：报答案，然后下一题 */
@@ -563,9 +670,9 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         b.tvFeedback.text =
             if (r.timedOut) "时间到，下一题" else "回答错误，正确答案是 ${r.question.answerText}"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
-        val say = if (r.timedOut) Speech.timedOutWithAnswer(r.question)
+        val line = if (r.timedOut) Speech.timedOutWithAnswer(r.question)
         else Speech.wrongWithAnswer(r.question)
-        app.speaker.speak(say, rate()) { advanceAfter(360) }
+        say(line) { advanceAfter(360) }
     }
 
     private fun advanceAfter(delay: Long) {
@@ -703,6 +810,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     }
 
     override fun onDestroyView() {
+        stopSpeakPulse()
         stopTimer()
         stopIdle()
         cancelAuto()

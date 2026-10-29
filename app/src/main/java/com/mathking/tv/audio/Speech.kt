@@ -36,6 +36,11 @@ object Speech {
 
     fun timedOutWithAnswer(q: Question): String = "$TIMEOUT，正确答案是${answerOf(q)}"
 
+    /** 开局倒计时：准备好了吗 → 三 → 二 → 一 → 开始 */
+    const val READY = "准备好了吗"
+    const val GO = "开始"
+    fun countdown(n: Int): String = cn(n)
+
     /** 同一题停留太久，再读一遍题面（第 2 次换句更软的提示） */
     fun idlePrompt(times: Int): String =
         if (times <= 1) "再听一遍" else "慢慢想一想，别着急"

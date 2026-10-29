@@ -83,6 +83,9 @@ class SpeechCoverageTest {
             }
         }
         covered(Speech.CORRECT, "答对")
+        covered(Speech.READY, "开局")
+        covered(Speech.GO, "开始")
+        listOf(3, 2, 1).forEach { covered(Speech.countdown(it), "倒计时") }
         covered(Speech.WRONG, "答错")
         covered(Speech.answerOf(com.mathking.tv.data.Question("1 + 1", 2, "加")), "答案")
         (1..2).forEach { covered(Speech.idlePrompt(it), "发呆提示") }
