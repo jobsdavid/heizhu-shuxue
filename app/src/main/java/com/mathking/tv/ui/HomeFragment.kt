@@ -220,20 +220,17 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 data.today.questions == 0 -> "$who，今天还没练，来热热身"
                 else -> "$who，今天已经练了 ${data.today.questions} 题，真棒"
             }
-            val stagePower = Analytics.power(
-                data.stageOverall.accuracy, data.stageOverall.avgSeconds, stage.targetSeconds,
-                data.stageOverall.questions, stage.weight
-            )
             val progress = app.settings.unlockProgress(
-                stage, data.stageOverall.questions, data.stageOverall.accuracy, stagePower
+                stage, data.stageOverall.questions, data.stageOverall.accuracy,
+                data.stageOverall.avgSeconds
             )
             b.tvPracticeMode.text = when {
                 progress != null && progress.needMoreQuestions > 0 ->
                     "还差 ${progress.needMoreQuestions} 题解锁下一阶段"
                 progress != null && progress.needMoreAccuracy > 0 ->
                     "正确率到 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}% 解锁下一阶段"
-                progress != null && progress.needMorePower > 0 ->
-                    "算力还差 ${progress.needMorePower.toInt()}（目标 ${progress.powerTarget}）"
+                progress != null && progress.needMoreSeconds > 0 ->
+                    "再快 ${String.format("%.1f", progress.needMoreSeconds)} 秒/题解锁下一阶段"
                 else -> "${app.settings.questionCount} 题 · " +
                     if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }

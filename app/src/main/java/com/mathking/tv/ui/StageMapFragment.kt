@@ -37,8 +37,8 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
         _b = FragmentStagesBinding.bind(view)
         b.tvStageHint.text =
             "练满 ${Settings.UNLOCK_MIN_QUESTIONS} 题、正确率 ${Settings.UNLOCK_MIN_ACCURACY.toInt()}%，" +
-                "并且算力达到该阶段上限的 ${(Settings.POWER_TARGET_RATIO * 100).toInt()}%，" +
-                "才会解锁下一阶段；家长也可以在设置里开「解锁全部阶段」"
+                "并且平均每题用时达到该阶段目标速度，才会解锁下一阶段；" +
+                "家长也可以在设置里开「解锁全部阶段」"
         render()
     }
 
@@ -84,16 +84,13 @@ class StageMapFragment : Fragment(R.layout.fragment_stages) {
                 val need = if (prevStats == null) 0
                 else (Settings.UNLOCK_MIN_QUESTIONS - prevStats.questions).coerceAtLeast(0)
                 val acc = prevStats?.accuracy ?: 0.0
-                val prevPower = if (prev == null || prevStats == null) 0.0 else Analytics.power(
-                    prevStats.accuracy, prevStats.avgSeconds, prev.targetSeconds,
-                    prevStats.questions, prev.weight
-                )
-                val powerNeed = if (prev == null) 0 else
-                    (settings.powerTarget(prev) - prevPower).toInt()
+                val avg = prevStats?.avgSeconds ?: 0.0
+                val speedCap = if (prev == null) 0.0 else Settings.speedTargetSeconds(prev)
                 status = when {
                     need > 0 -> "🔒 还差 $need 题"
                     acc < Settings.UNLOCK_MIN_ACCURACY -> "🔒 正确率 ${Fmt.pct(acc)}"
-                    powerNeed > 0 -> "🔒 算力还差 $powerNeed"
+                    avg <= 0 || (speedCap > 0 && avg > speedCap) ->
+                        "🔒 再快 ${String.format("%.1f", (avg - speedCap).coerceAtLeast(0.0))} 秒/题"
                     else -> "🔒 未解锁"
                 }
                 statusColor = R.color.text_dim

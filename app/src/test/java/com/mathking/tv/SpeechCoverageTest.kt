@@ -138,15 +138,20 @@ class SpeechCoverageTest {
     }
 
     @Test
-    fun `解锁算力门槛必须落在可达范围内`() {
-        // 用户要求「门槛很高」：目标 = 阶段理论上限 × 0.9
+    fun `解锁要 95% 正确率且有速度上限`() {
+        val rules = com.mathking.tv.data.Settings
+        assertEquals(95.0, rules.UNLOCK_MIN_ACCURACY, 0.001)
         StageCatalog.all.forEach { stage ->
-            val ratio = 0.9
-            val cap = 450.0 + 150.0 + 400.0 * (stage.weight / 2.3).coerceAtMost(1.0)
-            val target = cap * ratio
-            assertTrue("${stage.id} 目标 $target 不能超过上限 $cap", target <= cap)
-            assertTrue("${stage.id} 目标太低", target > 600)
+            // 速度门槛必须是正数、且不宽松于阶段目标
+            assertTrue("${stage.id} 速度门槛异常", rules.speedTargetSeconds(stage) in 1.0..60.0)
+            assertTrue(
+                "${stage.id} 门槛不能比阶段目标还慢",
+                rules.speedTargetSeconds(stage) <= stage.targetSeconds + 0.001
+            )
         }
+        // s1 目标 5 秒：4.9 秒达标、5.1 秒不达标
+        val s1 = StageCatalog.byId("s1")
+        assertTrue(rules.speedTargetSeconds(s1) == 5.0)
     }
 
     @Test

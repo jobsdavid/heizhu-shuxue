@@ -798,10 +798,10 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 app.repo.saveDaily(dailyDay!!, stage.id, summary.total, summary.correctFirst)
             }
             val unlocked = if (finishedOk) {
-                app.settings.checkUnlock(stage, totalQuestions, totalAccuracy, power)
+                app.settings.checkUnlock(stage, totalQuestions, totalAccuracy, totalAvgSeconds)
             } else null
             val progress = if (finishedOk) {
-                app.settings.unlockProgress(stage, totalQuestions, totalAccuracy, power)
+                app.settings.unlockProgress(stage, totalQuestions, totalAccuracy, totalAvgSeconds)
             } else null
             Triple(summary.copy(power = power), unlocked, progress)
         }) { result ->

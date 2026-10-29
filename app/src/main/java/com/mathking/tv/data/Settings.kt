@@ -100,18 +100,21 @@ class Settings(context: Context) {
     }
 
     /**
-     * 解锁下一阶段：看该阶段的「累计」表现，而不是某一局的手气
-     * —— 累计至少 20 题、正确率至少 85%
+     * 解锁下一阶段：看该阶段的「累计」表现，不是某一局的手气。
+     *
+     * 三条同时满足（2026-10 定稿，用户原话「基本上不需要思考，能答对 95% 以上的速度」）：
+     * 1. 累计 ≥ [UNLOCK_MIN_QUESTIONS] 题；
+     * 2. 累计正确率 ≥ [UNLOCK_MIN_ACCURACY]（95%）；
+     * 3. 累计平均每题用时 ≤ 阶段目标秒数 × [UNLOCK_SPEED_RATIO] —— 到「条件反射」的程度，
+     *    而不是「想一想能做对」。
      */
     fun checkUnlock(
         stage: StageConfig,
         questions: Int,
         accuracy: Double,
-        power: Double
+        avgSeconds: Double
     ): StageConfig? {
-        if (questions < UNLOCK_MIN_QUESTIONS) return null
-        if (accuracy < UNLOCK_MIN_ACCURACY) return null
-        if (power < powerTarget(stage)) return null
+        if (!meetsUnlock(stage, questions, accuracy, avgSeconds)) return null
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
         unlock(next.id)
@@ -122,7 +125,7 @@ class Settings(context: Context) {
         stage: StageConfig,
         questions: Int,
         accuracy: Double,
-        power: Double
+        avgSeconds: Double
     ): UnlockProgress? {
         val next = StageCatalog.next(stage) ?: return null
         if (isUnlocked(next.id)) return null
@@ -130,25 +133,10 @@ class Settings(context: Context) {
             nextStageName = next.name,
             questions = questions,
             accuracy = accuracy,
-            power = power,
-            powerTarget = powerTarget(stage)
+            avgSeconds = avgSeconds,
+            targetSeconds = speedTargetSeconds(stage)
         )
     }
-
-    /**
-     * 解锁下一阶段要求的算力。
-     *
-     * 用户要求「门槛很高」：按该阶段理论上限的 90% 定。
-     * 以 s1 为例，满分上限约 774（正确率 450 + 速度 150 + 题量×难度 174），
-     * 目标 697 —— 意味着 300 题上下的练习量、正确率 95% 以上、速度贴近阶段目标，
-     * 三条里掉一条都到不了。想放宽就调 [POWER_TARGET_RATIO]。
-     */
-    fun powerTarget(stage: StageConfig): Int =
-        (maxPower(stage) * POWER_TARGET_RATIO).toInt()
-
-    /** 该阶段算力的理论上限（正确率满分 + 速度满分 + 题量难度满分） */
-    fun maxPower(stage: StageConfig): Double =
-        450.0 + 150.0 + 400.0 * (stage.weight / 2.3).coerceAtMost(1.0)
 
     val playerId: String
         get() {
@@ -173,10 +161,27 @@ class Settings(context: Context) {
         const val KEY_STAGE_REMAP = "stage_remap_v4"
 
         const val UNLOCK_MIN_QUESTIONS = 20
-        const val UNLOCK_MIN_ACCURACY = 85.0
 
-        /** 解锁要求的算力 = 阶段理论上限 × 这个比例（越高越难） */
-        const val POWER_TARGET_RATIO = 0.9
+        /** 累计正确率必须到 95%：会做还不够，要几乎不错 */
+        const val UNLOCK_MIN_ACCURACY = 95.0
+
+        /** 平均每题用时 ≤ 阶段目标 × 这个比例：1.0 = 必须达到「不用想」的速度 */
+        const val UNLOCK_SPEED_RATIO = 1.0
+
+        /** 解锁要求的速度：平均每题不超过这个秒数 */
+        fun speedTargetSeconds(stage: StageConfig): Double =
+            stage.targetSeconds * UNLOCK_SPEED_RATIO
+
+        /** 解锁条件是否已经全部达到（不含「下一阶段是否已解锁」） */
+        fun meetsUnlock(
+            stage: StageConfig,
+            questions: Int,
+            accuracy: Double,
+            avgSeconds: Double
+        ): Boolean =
+            questions >= UNLOCK_MIN_QUESTIONS &&
+                accuracy >= UNLOCK_MIN_ACCURACY &&
+                avgSeconds > 0 && avgSeconds <= speedTargetSeconds(stage)
     }
 
     /** 关闭「解锁全部」时，回到默认的 s1~s3 */

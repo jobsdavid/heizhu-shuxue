@@ -183,17 +183,19 @@ data class UnlockProgress(
     val nextStageName: String,
     val questions: Int,
     val accuracy: Double,
-    /** 当前阶段的算力 */
-    val power: Double,
-    /** 解锁下一阶段要求的算力 */
-    val powerTarget: Int
+    /** 当前阶段累计平均每题用时 */
+    val avgSeconds: Double,
+    /** 解锁要求的速度上限（秒/题） */
+    val targetSeconds: Double
 ) {
     val needMoreQuestions: Int
         get() = (Settings.UNLOCK_MIN_QUESTIONS - questions).coerceAtLeast(0)
     val needMoreAccuracy: Double
         get() = (Settings.UNLOCK_MIN_ACCURACY - accuracy).coerceAtLeast(0.0)
-    val needMorePower: Double
-        get() = (powerTarget - power).coerceAtLeast(0.0)
+
+    /** 还要再快多少秒/题，0 = 速度已达标 */
+    val needMoreSeconds: Double
+        get() = if (avgSeconds <= 0) 0.0 else (avgSeconds - targetSeconds).coerceAtLeast(0.0)
 }
 
 /** 每日挑战记录 */
