@@ -4,16 +4,11 @@ import android.graphics.BitmapFactory
 import android.graphics.drawable.GradientDrawable
 import android.graphics.Outline
 import android.os.Bundle
-import android.util.TypedValue
-import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewOutlineProvider
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.mathking.tv.App
 import com.mathking.tv.MainActivity
-import com.mathking.tv.audio.Sfx
 import com.mathking.tv.R
 import com.mathking.tv.data.DailyPoint
 import com.mathking.tv.data.DailyRecord
