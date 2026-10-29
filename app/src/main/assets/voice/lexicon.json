@@ -23,6 +23,7 @@
     { "token": "等于几", "file": "dengyu_ji", "text": "等于几" },
     { "token": "分之", "file": "fenzhi", "text": "分之" },
     { "token": "括号", "file": "kuohao", "text": "括号" },
+    { "token": "多少", "file": "duoshao", "text": "多少" },
     { "token": "括号里填几", "file": "kuohao_tian", "text": "括号里填几" },
     { "token": "答案只填分子", "file": "tian_fenzi", "text": "答案只填分子" },
 

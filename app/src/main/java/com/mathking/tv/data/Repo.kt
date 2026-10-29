@@ -225,7 +225,8 @@ class Repo(context: Context) {
             speak = speak,
             hint = Speech.hintForTag(e.tag),
             speakHint = Speech.hintForTag(e.tag),
-            findError = e.expr.contains("="),
+            // 填空题的题面也带等号（6 + □ = 9），但它不是找错题
+            findError = e.expr.contains("=") && !e.expr.contains("□"),
             answerDen = if (isFraction) den else 0,
             stageId = e.stageId
         )

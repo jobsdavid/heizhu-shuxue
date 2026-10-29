@@ -119,7 +119,9 @@ object Generator {
                 text = "□ $opSym $b = $c",
                 answer = a,
                 tag = "填空·$opSym",
-                speak = "括号里填几：括号 ${op.speak} ${cn(b)} 等于 ${cn(c)}",
+                // 读「多少」而不是「括号」：一年级孩子听「括号」不知道在说哪儿，
+                // 「多少减二等于五」跟家长口头讲的一模一样
+                speak = "多少 ${op.speak} ${cn(b)} 等于 ${cn(c)}",
                 hint = "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else if (op == Op.MUL) "除以" else "减"} ${cn(b)}",
                 speakHint = if (op == Op.MUL) "倒着想，用除法算" else "倒着想，用减法算"
             )
@@ -128,7 +130,7 @@ object Generator {
                 text = "$a $opSym □ = $c",
                 answer = b,
                 tag = "填空·$opSym",
-                speak = "括号里填几：${cn(a)} ${op.speak} 括号 等于 ${cn(c)}",
+                speak = "${cn(a)} ${op.speak} 多少 等于 ${cn(c)}",
                 hint = if (op == Op.SUB) "倒着想：${cn(a)} 减 ${cn(c)}"
                 else if (op == Op.DIV) "倒着想：${cn(a)} 除以 ${cn(c)}"
                 else "倒着想：${cn(c)} ${if (op == Op.ADD) "减" else "除以"} ${cn(a)}",

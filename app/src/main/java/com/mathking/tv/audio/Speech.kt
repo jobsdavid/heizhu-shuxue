@@ -85,15 +85,19 @@ object Speech {
      * 直接拼 "2 加 5" 会把两个数字整段丢掉，念出来只剩「加」，孩子完全听不懂。
      */
     fun expression(expr: String): String {
-        val hasEq = expr.contains("=")
-        var s = expr.substringBefore("=").trim()
+        // 填空题的等号右边是要读出来的（多少 加 五 等于 十二），
+        // 而找错题只读等号左边，再把错答案单独念一遍
+        val hasBlank = expr.contains("□") || expr.contains("?")
+        val hasEq = expr.contains("=") && !hasBlank
+        var s = (if (hasBlank) expr else expr.substringBefore("=")).trim()
             .replace("+", " 加 ")
             .replace("−", " 减 ")
             .replace("-", " 减 ")
             .replace("×", " 乘 ")
             .replace("÷", " 除以 ")
-            .replace("□", " 括号 ")
-            .replace("?", " 括号 ")
+            .replace("□", " 多少 ")
+            .replace("?", " 多少 ")
+            .replace("=", " 等于 ")
         // 先整体识别分数，再把剩下的纯数字转中文
         s = Regex("(\\d+)/(\\d+)").replace(s) { m ->
             fraction(m.groupValues[1].toInt(), m.groupValues[2].toInt())
@@ -102,7 +106,11 @@ object Speech {
             m.value.toIntOrNull()?.let { cn(it) } ?: m.value
         }
         s = s.replace(Regex("\\s+"), " ").trim()
-        return if (hasEq) "$s 这道题有错误 正确答案是几" else "$s 等于几"
+        return when {
+            hasEq -> "$s 这道题有错误 正确答案是几"
+            hasBlank -> s          // 「多少 加 五 等于 十二」
+            else -> "$s 等于几"
+        }
     }
 
     /** 错题条目只存了 tag，按 tag 反推该念哪句思路 */

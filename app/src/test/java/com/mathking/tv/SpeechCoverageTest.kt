@@ -101,6 +101,22 @@ class SpeechCoverageTest {
             "38 − 9 = 29"
         ).forEach { covered(Speech.expression(it), it) }
         assertEquals("二 加 五 这道题有错误 正确答案是几", Speech.expression("2 + 5 = 17"))
+        // 空格读「多少」，不读「括号」——孩子听不懂「括号」，家长口头说的就是「多少」
+        assertEquals("多少 加 五 等于 十二", Speech.expression("□ + 5 = 12"))
+    }
+
+    @Test
+    fun `填空题读多少不读括号`() {
+        val stage = StageCatalog.byId("s3")
+        var checked = 0
+        repeat(300) { i ->
+            val q = Generator.make(stage, QuestionStyle.FILL, Random(i))
+            assertTrue("填空题应出现多少：${q.speak}", q.speak.contains("多少"))
+            assertTrue("填空题不该读括号：${q.speak}", !q.speak.contains("括号"))
+            covered(q.speak, "填空")
+            checked++
+        }
+        assertTrue(checked > 0)
     }
 
     @Test
