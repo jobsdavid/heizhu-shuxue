@@ -53,6 +53,9 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         private const val ARG_DAILY = "daily"
         private const val ARG_WRONG_ID = "wrong_id"
 
+        /** 错题重练是否只练「当前阶段」的错题（错题本里选了某一档时用） */
+        private const val ARG_WRONG_STAGE_ONLY = "wrong_stage_only"
+
         /** 一个答案最多 3 位（s8 两位数乘一位数最大 891，s9 三位数除法最大 499） */
         private const val MAX_DIGITS = 3
 
@@ -73,7 +76,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
             wrongOnly: Boolean,
             seed: Long = 0L,
             dailyDay: String? = null,
-            wrongId: Long = 0L
+            wrongId: Long = 0L,
+            wrongStageOnly: Boolean = false
         ) = PracticeFragment().apply {
             arguments = Bundle().apply {
                 putString(ARG_STAGE, stageId)
@@ -83,6 +87,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 putLong(ARG_SEED, seed)
                 putString(ARG_DAILY, dailyDay)
                 putLong(ARG_WRONG_ID, wrongId)
+                putBoolean(ARG_WRONG_STAGE_ONLY, wrongStageOnly)
             }
         }
     }
@@ -102,6 +107,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private var seed = 0L
     private var dailyDay: String? = null
     private var wrongId = 0L
+    private var wrongStageOnly = false
 
     /** 上一题跳过后要留在下一题页面上的说明 */
     private var pendingTip: String? = null
@@ -135,6 +141,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         seed = arguments?.getLong(ARG_SEED, 0L) ?: 0L
         dailyDay = arguments?.getString(ARG_DAILY)
         wrongId = arguments?.getLong(ARG_WRONG_ID, 0L) ?: 0L
+        wrongStageOnly = arguments?.getBoolean(ARG_WRONG_STAGE_ONLY) ?: false
 
         KeypadBuilder.build(b.keypad, R.id.btnRepeat) { onKey(it) }
         b.tvStage.text = "S${StageCatalog.indexOf(stage) + 1} · ${stage.name} · " +
@@ -271,7 +278,9 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
                 openSession(questions)
             }
         } else if (wrongOnly) {
-            app.repo.async({ app.repo.wrongQuestions(null, count) }) { questions ->
+            // 错题本里选了某个难度就只练那一档；没选（全部）才练整本
+            val scope = if (wrongStageOnly) stage.id else null
+            app.repo.async({ app.repo.wrongQuestions(scope, count) }) { questions ->
                 if (!isAdded || _b == null) return@async
                 if (questions.isEmpty()) {
                     b.tvQuestion.text = "没有错题"

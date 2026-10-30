@@ -36,13 +36,55 @@
             android:textSize="17sp" />
     </LinearLayout>
 
+    <!-- 难度筛选：左右键切换（全部 / 有错题的每个难度），列表跟着过滤 -->
+    <LinearLayout
+        android:id="@+id/stageRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/selector_card"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="7dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="难度"
+            android:textColor="@color/text_dim"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/tvStageValue"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:text="全部（0 道）"
+            android:textColor="@color/accent"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="‹ 左右 ›"
+            android:textColor="@color/text_dim"
+            android:textSize="15sp" />
+    </LinearLayout>
+
     <!-- 操作提示 -->
     <TextView
         android:id="@+id/tvTip"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="选中一道题停 0.8 秒，自动讲解思路；按 ✓ 暂停或继续"
+        android:text="选中一道题停 0.8 秒自动讲解，按 ✓ 暂停/继续；按 ↑ 到「重练全部错题」"
         android:textColor="@color/text_dim"
         android:textSize="16sp" />
 
