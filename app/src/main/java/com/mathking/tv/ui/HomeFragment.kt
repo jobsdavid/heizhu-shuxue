@@ -194,13 +194,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 setColor(Ui.color(requireContext(), R.color.card))
                 setStroke(Ui.dp(requireContext(), 2.5f), rankColor)
             }
-            // 说清楚这是「总」算力：各难度里最强的那一档，不是当前难度单独的分数
-            val bestTag = global.stage?.let { st ->
-                val no = StageCatalog.indexOf(st) + 1
-                if (st.id == stage.id) "本难度" else "最高 S$no"
-            } ?: ""
-            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 总算力 ${global.power.toInt()}" +
-                if (bestTag.isNotBlank()) "（$bestTag）" else ""
+            // 只写「Lv.N 段位 · N 分」。以前带个「（最高 S1）」，家长读成「最高只到 S1」，
+            // 和下面难度行的 S2 打架；分数来自哪一档属于家长视角，放成长页说。
+            b.tvPower.text = "Lv.${rank.level} ${rank.name} · ${global.power.toInt()} 分"
             b.tvPower.setTextColor(rankColor)
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"

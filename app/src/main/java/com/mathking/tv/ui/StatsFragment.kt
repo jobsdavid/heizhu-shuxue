@@ -73,7 +73,7 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         b.tvPower.text = "总算力 ${global.power.toInt()}"
         b.tvRank.text = rank.name
         b.tvRank.setTextColor(Ui.color(ctx, rank.color))
-        val best = global.stage?.let { " · 最高 S${StageCatalog.indexOf(it) + 1}" } ?: ""
+        val best = global.stage?.let { " · S${StageCatalog.indexOf(it) + 1} 这一档最强" } ?: ""
         b.tvSummary.text = "累计 ${o.questions} 题 · ${Fmt.sec(o.avgSeconds)} 秒/题$best"
 
         // 正确率曲线（没有练习的天断点）
