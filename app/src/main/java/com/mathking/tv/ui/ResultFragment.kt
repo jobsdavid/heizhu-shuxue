@@ -13,6 +13,7 @@ import com.mathking.tv.data.PlayMode
 import com.mathking.tv.data.StageCatalog
 import com.mathking.tv.databinding.FragmentResultBinding
 import com.mathking.tv.stats.Analytics
+import com.mathking.tv.ui.effect.ConfettiView
 import com.mathking.tv.util.Fmt
 import com.mathking.tv.util.Ui
 
@@ -51,28 +52,33 @@ class ResultFragment : Fragment(R.layout.fragment_result) {
         val rank = Analytics.rank(summary.power)
         val progress = act.lastUnlockProgress
         b.tvLine3.text = buildString {
-            if (summary.power > 0) append("算力 ${summary.power.toInt()}（${rank.name}）")
+            // 这行是「本难度」的算力（该难度累计），不是首页那个总算力，写清楚免得看混
+            if (summary.power > 0) append("本难度算力 ${summary.power.toInt()}（${rank.name}）")
             when {
-                unlocked != null -> append(" · 已解锁「${unlocked.name}」")
-                progress != null -> {
-                    append("\n距离解锁「${progress.nextStageName}」：")
-                    val parts = mutableListOf<String>()
-                    if (progress.needMoreQuestions > 0) parts.add("还差 ${progress.needMoreQuestions} 题")
-                    if (progress.needMoreAccuracy > 0) {
-                        parts.add("正确率差 ${String.format("%.1f", progress.needMoreAccuracy)}%")
-                    }
-                    if (progress.needMoreSeconds > 0) {
-                        parts.add(
-                            "速度 ${Fmt.sec(progress.avgSeconds)}s/题（要求 " +
-                                "${String.format("%.1f", progress.targetSeconds)}s 内）"
-                        )
-                    }
-                    if (parts.isEmpty()) parts.add("马上就能解锁")
-                    append(parts.joinToString(" · "))
-                }
+                unlocked != null -> append(" · 🎉 解锁「${unlocked.name}」")
+                progress != null -> append(" · 解锁下一档：${progress.missingText}")
             }
         }
         b.tvLine3.setTextColor(Ui.color(requireContext(), if (unlocked != null) R.color.accent else R.color.blue))
+
+        // 四条解锁条件逐条 ✓/✗：卡在哪一条，这一屏就能看见
+        if (progress != null) {
+            val items = UnlockHelp.items(
+                summary.stage, progress.questions, progress.accuracy,
+                progress.avgSeconds, progress.power
+            )
+            b.tvConditions.visibility = View.VISIBLE
+            b.tvConditions.text = UnlockHelp.labeledSpan(requireContext(), items)
+        } else {
+            b.tvConditions.visibility = View.GONE
+        }
+
+        // 特效：满分或刚解锁 → 撒彩带；考得很差 → 加油（不给压力，但也别只留一个冷冰冰的分数）
+        val perfect = summary.total >= 5 && summary.correctFirst == summary.total
+        when {
+            perfect || unlocked != null -> act.playEffect(ConfettiView.Mode.CELEBRATE)
+            summary.accuracy < 60 -> act.playEffect(ConfettiView.Mode.CHEER)
+        }
 
         // 解锁了就把话说明白，别只藏在第三行蓝字后面
         if (unlocked != null) {

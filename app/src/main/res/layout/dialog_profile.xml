@@ -36,7 +36,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
-        android:text="选个头像"
+        android:text="选个头像（点表情会换掉照片头像）"
         android:textColor="@color/text_dim"
         android:textSize="14sp" />
 

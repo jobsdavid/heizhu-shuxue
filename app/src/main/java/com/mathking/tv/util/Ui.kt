@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.core.content.ContextCompat
 
 object Ui {
@@ -55,6 +56,47 @@ object Ui {
                 v.clipChildren = false
                 v.clipToPadding = false
             }
+        }
+    }
+
+    /**
+     * 答对了轻轻「弹」一下。
+     * 用 bouncy 插值器从 0.92 弹回 1.0，孩子余光都能感觉到「这题对了」。
+     */
+    fun pop(vararg views: View) {
+        views.forEach { v ->
+            v.animate().cancel()
+            v.scaleX = 0.92f
+            v.scaleY = 0.92f
+            v.animate()
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(240)
+                .setInterpolator(OvershootInterpolator(2.6f))
+                .start()
+        }
+    }
+
+    /**
+     * 答错了左右轻晃一下（配合红框）。
+     * 只晃 8dp、320ms：电视上看是「抖了一下」，不是「整页在抖」。
+     */
+    fun shake(vararg views: View) {
+        views.forEach { v ->
+            val d = dp(v.context, 8f).toFloat()
+            v.animate().cancel()
+            v.translationX = 0f
+            v.animate()
+                .translationXBy(d)
+                .setDuration(70)
+                .withEndAction {
+                    v.animate().translationXBy(-2 * d).setDuration(110).withEndAction {
+                        v.animate().translationXBy(d).setDuration(80).withEndAction {
+                            v.translationX = 0f
+                        }.start()
+                    }.start()
+                }
+                .start()
         }
     }
 }

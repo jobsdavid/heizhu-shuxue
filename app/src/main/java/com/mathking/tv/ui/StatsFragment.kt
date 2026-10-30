@@ -25,7 +25,8 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         val overall: Overall,
         val daily30: List<DailyPoint>,
         val daily56: List<DailyPoint>,
-        val tags: List<TagStat>
+        val tags: List<TagStat>,
+        val perStage: Map<String, Overall>
     )
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -53,7 +54,8 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
                 overall = app.repo.overall(),
                 daily30 = app.repo.dailyStats(30),
                 daily56 = app.repo.dailyStats(56),
-                tags = app.repo.tagStats()
+                tags = app.repo.tagStats(),
+                perStage = app.repo.overallByStage()
             )
         }) { data ->
             if (!isAdded || _b == null) return@async
@@ -63,15 +65,16 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
 
     private fun render(data: StatsData) {
         val ctx = requireContext()
-        val stage = StageCatalog.byId(App.of(ctx).settings.stageId)
         val o = data.overall
-        val power = Analytics.power(o.accuracy, o.avgSeconds, stage.targetSeconds, o.questions, stage.weight)
-        val rank = Analytics.rank(power)
+        // 和首页同一口径：总算力 = 各难度分别算完取最强的一档
+        val global = Analytics.overallPower(data.perStage)
+        val rank = Analytics.rank(global.power)
 
-        b.tvPower.text = "算力 ${power.toInt()}"
+        b.tvPower.text = "总算力 ${global.power.toInt()}"
         b.tvRank.text = rank.name
         b.tvRank.setTextColor(Ui.color(ctx, rank.color))
-        b.tvSummary.text = "累计 ${o.questions} 题 · ${Fmt.sec(o.avgSeconds)} 秒/题"
+        val best = global.stage?.let { " · 最高 S${StageCatalog.indexOf(it) + 1}" } ?: ""
+        b.tvSummary.text = "累计 ${o.questions} 题 · ${Fmt.sec(o.avgSeconds)} 秒/题$best"
 
         // 正确率曲线（没有练习的天断点）
         val labels = data.daily30.map { it.day.substring(5).replace("-", "/") }

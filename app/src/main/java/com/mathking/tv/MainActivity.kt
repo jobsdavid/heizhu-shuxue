@@ -29,6 +29,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 全局特效：满分撒彩带、考差了加油。
+     *
+     * 放在 Activity 而不是各页面里，是因为这套动效要在结果页、挑战胜负页都能用，
+     * 每个 Fragment 各放一个 View 既费内存也容易叠错层级。
+     */
+    fun playEffect(mode: com.mathking.tv.ui.effect.ConfettiView.Mode) {
+        findViewById<com.mathking.tv.ui.effect.ConfettiView>(R.id.effectLayer)?.play(mode)
+    }
+
     fun navigate(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.container, fragment)

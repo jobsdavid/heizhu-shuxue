@@ -89,9 +89,21 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="算力 612（数学高手）"
+                android:text="本难度算力 612（数学高手）"
                 android:textColor="@color/blue"
                 android:textSize="17sp" />
+
+            <!-- 解锁四条逐条 ✓/✗：和难度地图同一套口径，满没满一眼看出来 -->
+            <TextView
+                android:id="@+id/tvConditions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:letterSpacing="0.02"
+                android:maxLines="2"
+                android:text="①题量 ✓  ②正确率 ✓  ③速度 ✗  ④算力 ✓"
+                android:textColor="@color/text_dim"
+                android:textSize="15sp" />
         </LinearLayout>
     </LinearLayout>
 

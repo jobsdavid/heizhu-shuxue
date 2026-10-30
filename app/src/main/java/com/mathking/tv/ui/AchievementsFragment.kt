@@ -27,13 +27,9 @@ class AchievementsFragment : Fragment(R.layout.fragment_achievements) {
         _b = FragmentAchievementsBinding.bind(view)
         val app = App.of(requireContext())
         app.repo.async({
-            val stage = StageCatalog.byId(app.settings.stageId)
-            val overall = app.repo.overall()
-            val power = Analytics.power(
-                overall.accuracy, overall.avgSeconds, stage.targetSeconds,
-                overall.questions, stage.weight
-            )
-            val list = Achievements.load(app.repo, power)
+            // 成就里的算力门槛和首页同一口径（总算力 = 各难度取最强的那一档）
+            val global = Analytics.overallPower(app.repo.overallByStage())
+            val list = Achievements.load(app.repo, global.power)
             list to app.repo.overall()
         }) { pair ->
             if (!isAdded || _b == null) return@async

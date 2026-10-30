@@ -431,6 +431,11 @@ class ChallengeFragment : Fragment(R.layout.fragment_challenge), DigitInput {
             "$paceText · 电脑 ${String.format("%.1f", baselineMs / 1000.0)} 秒/题（你的最快纪录 × 0.8）\n$tip"
         b.btnAgain.requestFocus()
         if (win) Sfx.levelUp() else Sfx.finish()
+        // 赢了撒彩带，输了/打平给「加油」——输给电脑也要有再来一局的劲
+        (activity as? MainActivity)?.playEffect(
+            if (win) com.mathking.tv.ui.effect.ConfettiView.Mode.CELEBRATE
+            else com.mathking.tv.ui.effect.ConfettiView.Mode.CHEER
+        )
         // 这一局已经花掉一次，看看还剩几次；没了就把「再来一轮」换成提示
         app.repo.async({ app.repo.challengeStatus(stage) }) { st ->
             if (!isAdded || _b == null) return@async

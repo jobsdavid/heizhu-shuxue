@@ -42,6 +42,34 @@ object Analytics {
 
     data class Rank(val level: Int, val name: String, val badge: String, val color: Int, val next: Double)
 
+    /** 全局算力：最强的那一档难度 + 它的算力 */
+    data class GlobalPower(val power: Double, val stage: com.mathking.tv.data.StageConfig?)
+
+    /**
+     * 全局等级/算力口径（2026-10 明确）：
+     *
+     * 每个难度用**自己的**目标秒数和难度权重各算一份算力，取最高的那档当作「总算力」。
+     * 以前是「全局总题数 × 当前难度的目标秒数/权重」——两个口径混着算，
+     * 练 S1 的人切到 S12 等级立刻掉一大截，家长也看不懂显示的是总分还是当前难度分。
+     *
+     * 取最大值而不是加权平均：等级只升不降，换难度不会把娃的等级打回原形；
+     * 「最高难度」也能从 [GlobalPower.stage] 里说清楚。
+     */
+    fun overallPower(perStage: Map<String, com.mathking.tv.data.Overall>): GlobalPower {
+        var best = 0.0
+        var bestStage: com.mathking.tv.data.StageConfig? = null
+        com.mathking.tv.data.StageCatalog.available.forEach { st ->
+            val o = perStage[st.id] ?: return@forEach
+            if (o.questions <= 0) return@forEach
+            val p = power(o.accuracy, o.avgSeconds, st.targetSeconds, o.questions, st.weight)
+            if (p > best) {
+                best = p
+                bestStage = st
+            }
+        }
+        return GlobalPower(best, bestStage)
+    }
+
     /**
      * 段位：猪头随段位换样式（🐷 小 → 🐽 → 🐖 → 🐗 → 👑 → 🏆），
      * 名字和算力数字都用同一档的颜色，家长一眼看出「到哪一级了」。

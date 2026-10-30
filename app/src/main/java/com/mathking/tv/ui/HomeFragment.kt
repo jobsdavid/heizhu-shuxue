@@ -48,7 +48,9 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
         val challenge: ChallengeStatus,
         val daily: DailyRecord?,
         val dailyStreak: Int,
-        val stageOverall: Overall
+        val stageOverall: Overall,
+        /** 每个难度各自的累计成绩：总算力与「本难度算力」都从这里来 */
+        val perStage: Map<String, Overall>
     )
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -164,36 +166,41 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
 
         todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         app.repo.async({
-            val stageOverall = app.repo.overall(stage.id)
+            // 口径和解锁判定对齐：错题重练会反复刷同一批题（正确率虚高），不算进解锁进度；
+            // 以前首页显示算的是「含错题重练」，会出现「显示已达标却没解锁」。
+            val stageOverall = app.repo.overall(stage.id, excludeWrongBook = true)
             val base = app.repo.challengeStatus(stage)
             HomeData(
                 app.repo.today(), app.repo.overall(), app.repo.wrongCount(),
                 app.repo.dailyStats(30),
                 base,
                 app.repo.dailyRecord(todayKey), app.repo.dailyStreak(),
-                stageOverall
+                stageOverall,
+                app.repo.overallByStage()
             )
         }) { data ->
             if (!isAdded || _b == null) return@async
             val overall = data.overall
-            val power = Analytics.power(
-                overall.accuracy, overall.avgSeconds, stage.targetSeconds,
-                overall.questions, stage.weight
-            )
-            val rank = Analytics.rank(power)
+            // 等级看「全局」：各难度用各自的目标秒数/权重算，取最强的一档（Analytics.overallPower）
+            val global = Analytics.overallPower(data.perStage)
+            val rank = Analytics.rank(global.power)
 
             applyAvatar(app.settings)
             b.tvRankName.text = app.settings.userName.ifBlank { "小朋友" }
             b.tvRankName.setTextColor(Ui.color(requireContext(), rank.color))
-            // 不用猪头徽章了（丑）：改成给名字区描边，等级越高边框颜色不同
-            b.tvRankBadge.visibility = View.GONE
             val rankColor = Ui.color(requireContext(), rank.color)
             b.rankBox.background = GradientDrawable().apply {
                 cornerRadius = Ui.dp(requireContext(), 18f).toFloat()
                 setColor(Ui.color(requireContext(), R.color.card))
                 setStroke(Ui.dp(requireContext(), 2.5f), rankColor)
             }
-            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 算力 ${power.toInt()}"
+            // 说清楚这是「总」算力：各难度里最强的那一档，不是当前难度单独的分数
+            val bestTag = global.stage?.let { st ->
+                val no = StageCatalog.indexOf(st) + 1
+                if (st.id == stage.id) "本难度" else "最高 S$no"
+            } ?: ""
+            b.tvPower.text = "Lv.${rank.level} ${rank.name} · 总算力 ${global.power.toInt()}" +
+                if (bestTag.isNotBlank()) "（$bestTag）" else ""
             b.tvPower.setTextColor(rankColor)
 
             b.tvTodayQuestions.text = "${data.today.questions} 题"
@@ -246,9 +253,10 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
                 stage, data.stageOverall.questions, data.stageOverall.accuracy,
                 data.stageOverall.avgSeconds, stagePower
             )
+            // 「本难度算力」和上面的「总算力」分开写，别让人以为是同一个数
             b.tvPracticeMode.text = when {
-                progress != null -> "解锁下一难度：${progress.missingText}"
-                else -> "${app.settings.questionCount} 题 · " +
+                progress != null -> "算力 ${stagePower.toInt()} · 解锁下一档：${progress.missingText}"
+                else -> "算力 ${stagePower.toInt()} · ${app.settings.questionCount} 题 · " +
                     if (app.settings.mode == PlayMode.TIMED) "限时" else "不限时"
             }
         }

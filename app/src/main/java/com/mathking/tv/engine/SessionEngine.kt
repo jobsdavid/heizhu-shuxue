@@ -120,7 +120,8 @@ class SessionEngine(
                 val rec = AttemptRecord(index, q, value, false, attemptCount, ms, timedOut)
                 records.add(rec)
                 repo.saveAttempt(sessionId, rec)
-                repo.upsertWrong(q.stageId.ifBlank { stage.id }, q)
+                // 错题在第一次没答对时就已收进错题本（上面的 attemptCount==1 分支），
+                // 这里再收一次会让 wrong_count 加两次、streak 反复清零——考试/限时错一题记成两题。
                 questionDone = true
                 SubmitResult(false, false, timedOut, 0, q, isLast)
             }

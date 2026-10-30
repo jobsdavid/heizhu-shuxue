@@ -388,6 +388,29 @@ class Repo(context: Context, userId: Long = 0L) {
         return Overall()
     }
 
+    /**
+     * 一次查出所有难度的累计成绩（key = stage_id）。
+     *
+     * 首页等级、难度地图都要「每个难度各自的战绩」，以前是循环 12 次 [overall]，
+     * 每次一趟 SQL；这里一次 GROUP BY 拿全，顺带避免在 UI 线程上反复查库。
+     * 口径和 [overall] 完全一致：排除挑战（抢时间，正确率天然偏低）、排除错题重练（刷同一批题虚高）。
+     */
+    fun overallByStage(): Map<String, Overall> {
+        val out = LinkedHashMap<String, Overall>()
+        helper.readableDatabase.rawQuery(
+            "SELECT stage_id, COUNT(*), IFNULL(SUM(total),0), " +
+                "IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0) " +
+                "FROM session WHERE finished=1 AND mode != 'challenge' AND mode != 'wrongbook' " +
+                "GROUP BY stage_id",
+            null
+        ).use { c ->
+            while (c.moveToNext()) {
+                out[c.getString(0)] = Overall(c.getInt(1), c.getInt(2), c.getInt(3), c.getLong(4))
+            }
+        }
+        return out
+    }
+
     fun today(): TodaySummary {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         helper.readableDatabase.rawQuery(

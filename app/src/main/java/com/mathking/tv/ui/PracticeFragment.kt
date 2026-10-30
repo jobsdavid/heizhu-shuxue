@@ -589,6 +589,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         phase = Phase.LOCKED
         Sfx.wrong()
         setAnswerState(AnswerState.BAD)
+        Ui.shake(b.answerBox)
         b.tvFeedback.text = "时间到，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
         say(Speech.timedOutWithAnswer(r.question)) { advanceAfter(360) }
@@ -625,6 +626,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun onCorrect(r: SessionEngine.SubmitResult) {
         Sfx.correct()
         setAnswerState(AnswerState.OK)
+        Ui.pop(b.answerBox)
         if (r.combo >= 3) {
             Sfx.combo(r.combo)
             b.tvFeedback.text = "回答正确！${r.combo} 连击"
@@ -639,6 +641,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun onSkipped(r: SessionEngine.SubmitResult) {
         Sfx.wrong()
         setAnswerState(AnswerState.BAD)
+        Ui.shake(b.answerBox)
         b.tvFeedback.text = "这题先跳过，下一题"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.accent))
         pendingTip = "上一题先跳过：${r.question.hint.ifBlank { "回头在错题本里再练" }}"
@@ -652,6 +655,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun onRetry(r: SessionEngine.SubmitResult) {
         Sfx.wrong()
         setAnswerState(AnswerState.BAD)
+        Ui.shake(b.answerBox)
         b.tvFeedback.text = "回答错误，再算一遍"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
         if (r.question.hint.isNotBlank()) {
@@ -668,6 +672,7 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
     private fun onWrongGoNext(r: SessionEngine.SubmitResult) {
         Sfx.wrong()
         setAnswerState(AnswerState.BAD)
+        Ui.shake(b.answerBox)
         b.tvFeedback.text =
             if (r.timedOut) "时间到，下一题" else "回答错误，正确答案是 ${r.question.answerText}"
         b.tvFeedback.setTextColor(Ui.color(requireContext(), R.color.red))
