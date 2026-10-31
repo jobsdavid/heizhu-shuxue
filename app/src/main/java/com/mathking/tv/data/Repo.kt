@@ -304,7 +304,8 @@ class Repo(context: Context, userId: Long = 0L) {
         var tries = 0
         db.rawQuery(
             "SELECT MIN(a.ms), MAX(a.ms), AVG(a.ms), COUNT(*) FROM attempt a " +
-                "JOIN session s ON a.session_id = s.id WHERE s.finished=1 AND s.stage_id=?",
+                "JOIN session s ON a.session_id = s.id " +
+                "WHERE s.finished=1 AND s.stage_id=? AND a.ms<=$SPEED_MAX_MS",
             arrayOf(stageId)
         ).use { c ->
             if (c.moveToFirst() && c.getInt(3) > 0) {
@@ -380,12 +381,27 @@ class Repo(context: Context, userId: Long = 0L) {
         // 解锁判定用：错题重练反复刷同一批题，正确率虚高，不该拿来解锁下一阶段
         if (excludeWrongBook) conds.add("mode != 'wrongbook'")
         val where = "WHERE " + conds.joinToString(" AND ")
+        // 速度样本单独查一次：单题超过 SPEED_MAX_MS 的按发呆处理，不进平均每题用时
+        var speedMs = 0L
+        var speedN = 0
+        helper.readableDatabase.rawQuery(
+            "SELECT IFNULL(SUM(a.ms),0), COUNT(*) FROM attempt a JOIN session s ON a.session_id=s.id " +
+                "$where AND a.ms<=?",
+            (args + SPEED_MAX_MS.toString()).toTypedArray()
+        ).use { c ->
+            if (c.moveToFirst()) {
+                speedMs = c.getLong(0)
+                speedN = c.getInt(1)
+            }
+        }
         helper.readableDatabase.rawQuery(
             "SELECT COUNT(*), IFNULL(SUM(total),0), IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0) FROM session $where",
             args.toTypedArray()
         ).use { c ->
             if (c.moveToFirst()) {
-                return Overall(c.getInt(0), c.getInt(1), c.getInt(2), c.getLong(3))
+                return Overall(
+                    c.getInt(0), c.getInt(1), c.getInt(2), c.getLong(3), speedMs, speedN
+                )
             }
         }
         return Overall()
@@ -411,6 +427,20 @@ class Repo(context: Context, userId: Long = 0L) {
                 out[c.getString(0)] = Overall(c.getInt(1), c.getInt(2), c.getInt(3), c.getLong(4))
             }
         }
+        // 每档的有效速度样本（单题 >SPEED_MAX_MS 不计入速度）
+        helper.readableDatabase.rawQuery(
+            "SELECT s.stage_id, IFNULL(SUM(a.ms),0), COUNT(*) FROM attempt a " +
+                "JOIN session s ON a.session_id = s.id " +
+                "WHERE s.finished=1 AND s.mode != 'challenge' AND s.mode != 'wrongbook' AND a.ms<=? " +
+                "GROUP BY s.stage_id",
+            arrayOf(SPEED_MAX_MS.toString())
+        ).use { c ->
+            while (c.moveToNext()) {
+                val id = c.getString(0)
+                val base = out[id] ?: continue
+                out[id] = base.copy(speedMs = c.getLong(1), speedQuestions = c.getInt(2))
+            }
+        }
         return out
     }
 
@@ -434,6 +464,20 @@ class Repo(context: Context, userId: Long = 0L) {
     fun dailyStats(days: Int): List<DailyPoint> {
         val since = System.currentTimeMillis() - days * 24L * 3600 * 1000
         val map = LinkedHashMap<String, DailyPoint>()
+        // 每天的有效速度样本（单题 >SPEED_MAX_MS 不计）
+        val speedMap = HashMap<String, Pair<Long, Int>>()
+        helper.readableDatabase.rawQuery(
+            """
+            SELECT date(s.started_at/1000, 'unixepoch', 'localtime') AS day,
+                   IFNULL(SUM(a.ms),0), COUNT(*)
+            FROM attempt a JOIN session s ON a.session_id = s.id
+            WHERE s.total>0 AND s.mode != 'challenge' AND s.started_at >= ? AND a.ms<=?
+            GROUP BY day
+            """.trimIndent(),
+            arrayOf(since.toString(), SPEED_MAX_MS.toString())
+        ).use { c ->
+            while (c.moveToNext()) speedMap[c.getString(0)] = c.getLong(1) to c.getInt(2)
+        }
         helper.readableDatabase.rawQuery(
             """
             SELECT date(started_at/1000, 'unixepoch', 'localtime') AS day,
@@ -445,7 +489,12 @@ class Repo(context: Context, userId: Long = 0L) {
             arrayOf(since.toString())
         ).use { c ->
             while (c.moveToNext()) {
-                map[c.getString(0)] = DailyPoint(c.getString(0), c.getInt(1), c.getInt(2), c.getLong(3))
+                val day = c.getString(0)
+                val sp = speedMap[day]
+                map[day] = DailyPoint(
+                    day, c.getInt(1), c.getInt(2), c.getLong(3),
+                    sp?.first ?: c.getLong(3), sp?.second ?: c.getInt(1)
+                )
             }
         }
         val out = mutableListOf<DailyPoint>()

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">黑猪数学</string>
+    <string name="app_logo_desc">黑猪数学图标</string>
 </resources>

@@ -24,14 +24,31 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <TextView
+            <!-- 标题 = 黑猪图形 + 文字：品牌要一眼看到那只黑猪，不能只有两个汉字 -->
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:letterSpacing="0.04"
-                android:text="黑猪数学"
-                android:textColor="@color/accent"
-                android:textSize="42sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="46dp"
+                    android:layout_height="46dp"
+                    android:background="@drawable/bg_pig_round"
+                    android:contentDescription="@string/app_logo_desc"
+                    android:padding="3dp"
+                    android:src="@drawable/ic_pig_head" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:letterSpacing="0.04"
+                    android:text="黑猪数学"
+                    android:textColor="@color/accent"
+                    android:textSize="42sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tvSubtitle"

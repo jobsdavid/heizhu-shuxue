@@ -146,10 +146,18 @@ data class DailyPoint(
     val day: String,
     val total: Int,
     val correct: Int,
-    val msTotal: Long
+    val msTotal: Long,
+    /** 速度样本：单题超过 [SPEED_MAX_MS] 的题不计入平均每题用时 */
+    val speedMs: Long = msTotal,
+    val speedQuestions: Int = total
 ) {
     val accuracy: Double get() = if (total == 0) 0.0 else correct * 100.0 / total
-    val avgSeconds: Double get() = if (total == 0) 0.0 else msTotal / 1000.0 / total
+    val avgSeconds: Double
+        get() = when {
+            speedQuestions > 0 -> speedMs / 1000.0 / speedQuestions
+            total > 0 -> msTotal / 1000.0 / total
+            else -> 0.0
+        }
 }
 
 /** 知识点统计 */
@@ -168,14 +176,27 @@ data class TodaySummary(
 }
 
 /** 某个范围内的整体表现（用于首页、统计页顶部、能力分） */
+/** 单题用时上限（毫秒）：超过这个时间的题按「发呆 / 走神」处理，不计入速度统计 */
+const val SPEED_MAX_MS = 150_000L
+
 data class Overall(
     val sessions: Int = 0,
     val questions: Int = 0,
     val correct: Int = 0,
-    val msTotal: Long = 0
+    val msTotal: Long = 0,
+    /** 速度样本：单题超过 [SPEED_MAX_MS] 的题算发呆/走神，不计入速度统计 */
+    val speedMs: Long = msTotal,
+    val speedQuestions: Int = questions
 ) {
     val accuracy: Double get() = if (questions == 0) 0.0 else correct * 100.0 / questions
-    val avgSeconds: Double get() = if (questions == 0) 0.0 else msTotal / 1000.0 / questions
+
+    /** 平均每题用时：只按有效速度样本算（没有样本时退回全部题，避免显示 0） */
+    val avgSeconds: Double
+        get() = when {
+            speedQuestions > 0 -> speedMs / 1000.0 / speedQuestions
+            questions > 0 -> msTotal / 1000.0 / questions
+            else -> 0.0
+        }
 }
 
 /** 距离解锁下一阶段的进度 */
