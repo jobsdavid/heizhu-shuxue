@@ -151,6 +151,15 @@ def main():
     pig_head(384).save(os.path.join(d, "ic_pig_head.png"))
     print("drawable-xhdpi/ic_pig_head.png 384")
 
+    # README / 发布页用的大图（改图标必须一起重生成，否则文档里还是旧形象）
+    os.makedirs(os.path.join(RES, "drawable-nodpi"), exist_ok=True)
+    icon_legacy(512).save(os.path.join(RES, "drawable-nodpi", "app_icon_512.png"))
+    print("drawable-nodpi/app_icon_512.png 512")
+    docs = os.path.join(ROOT, "docs")
+    os.makedirs(docs, exist_ok=True)
+    icon_legacy(512).save(os.path.join(docs, "app-icon.png"))
+    print("docs/app-icon.png 512")
+
 
 if __name__ == "__main__":
     main()

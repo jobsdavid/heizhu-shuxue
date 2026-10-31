@@ -13,16 +13,15 @@
 
 **最新版**：[github.com/jobsdavid/heizhu-shuxue/releases/latest](https://github.com/jobsdavid/heizhu-shuxue/releases/latest)
 
-**国内镜像**（下载更快）：[dingshift.com/dl/heizhu-shuxue-1.0.0.apk](https://dingshift.com/dl/heizhu-shuxue-1.0.0.apk)
+**国内镜像**（下载更快）：[dingshift.com/dl/heizhu-shuxue-1.1.0.apk](https://dingshift.com/dl/heizhu-shuxue-1.1.0.apk)
 
-两个地址是同一个文件。当前版本 `1.0.0`，`heizhu-shuxue-1.0.0.apk`（4.1 MB，Android 6.0 及以上）。
+两个地址是同一个文件。当前版本 `1.1.0`（Android 6.0 及以上）。
 
-| 项 | 值 |
-|---|---|
-| SHA-256 | `83ae9d7572e9437279dc4e1cfc21a5d9124de4cf71baf3b72cb11b72713dbeb0` |
-| 签名证书 SHA-256 | `9F:5E:E5:9B:89:F4:C9:51:D1:7B:30:BD:73:40:37:96:4B:7D:12:F8:34:21:8D:9C:8A:11:28:6C:BE:B5:A9:C9` |
+> 1.1.0 的安装包需要用**发布签名证书**（keystore）打包才能覆盖安装旧版；
+> 仓库里只保留源码与构建脚本，签名文件不进仓库。自己打包：
+> `gradle :app:assembleRelease`（未配置签名时 Gradle 会用 debug 签名，只能全新安装，不能升级安装）。
 
-装到电视三种办法：U 盘拷过去用文件管理器装（先允许未知来源）；或电视浏览器直接开上面的链接；或 `adb install -r heizhu-shuxue-1.0.0.apk`。
+装到电视三种办法：U 盘拷过去用文件管理器装（先允许未知来源）；或电视浏览器直接开上面的链接；或 `adb install -r heizhu-shuxue-1.1.0.apk`。
 
 升级直接覆盖安装，不用卸载。校验：`sha256sum` 与 `apksigner verify --print-certs` 对一下上表指纹。
 

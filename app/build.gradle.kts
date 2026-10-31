@@ -34,8 +34,8 @@ android {
         minSdk = 23
         targetSdk = 34
         // versionCode 每次改图标/品牌资源都要 +1：电视桌面会缓存图标，版本不变就不刷新
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.1.0"
     }
 
     signingConfigs {

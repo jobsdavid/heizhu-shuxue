@@ -424,7 +424,10 @@ class Repo(context: Context, userId: Long = 0L) {
             null
         ).use { c ->
             while (c.moveToNext()) {
-                out[c.getString(0)] = Overall(c.getInt(1), c.getInt(2), c.getInt(3), c.getLong(4))
+                out[c.getString(0)] = Overall(
+                    c.getInt(1), c.getInt(2), c.getInt(3), c.getLong(4),
+                    speedMs = 0L, speedQuestions = 0
+                )
             }
         }
         // 每档的有效速度样本（单题 >SPEED_MAX_MS 不计入速度）
@@ -493,7 +496,7 @@ class Repo(context: Context, userId: Long = 0L) {
                 val sp = speedMap[day]
                 map[day] = DailyPoint(
                     day, c.getInt(1), c.getInt(2), c.getLong(3),
-                    sp?.first ?: c.getLong(3), sp?.second ?: c.getInt(1)
+                    sp?.first ?: 0L, sp?.second ?: 0
                 )
             }
         }

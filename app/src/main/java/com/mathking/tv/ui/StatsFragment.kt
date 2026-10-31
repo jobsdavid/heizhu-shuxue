@@ -95,10 +95,11 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         )
 
         // 速度曲线
-        val speeds = data.daily30.filter { it.total > 0 }.map { it.avgSeconds.toFloat() }
+        // 只画有有效速度样本的日子（单题超过 150 秒的题不算速度）
+        val speeds = data.daily30.filter { it.speedQuestions > 0 }.map { it.avgSeconds.toFloat() }
         val maxSpeed = max(10f, (speeds.maxOrNull() ?: 10f) * 1.3f)
         val speedValues: List<Float?> = data.daily30.map {
-            if (it.total > 0) it.avgSeconds.toFloat() else null
+            if (it.speedQuestions > 0) it.avgSeconds.toFloat() else null
         }
         b.chartSpeed.setData(
             "平均每题用时（越短越熟）",

@@ -10,7 +10,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gen_icon import CHARCOAL, GOLD_BOTTOM, GOLD_TOP, gradient, draw_pig  # noqa: E402
+from gen_icon import GOLD_BOTTOM, GOLD_TOP, ICON_SCALE, gradient, draw_pig  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "app", "src", "main", "res", "drawable-xhdpi", "tv_banner.png")
@@ -29,8 +29,8 @@ def main():
     # 注意：draw_pig 的坐标是按 1024 画的，画布也必须是 1024，最后再缩小
     icon = gradient(1024, GOLD_TOP, GOLD_BOTTOM).convert("RGBA")
     idraw = ImageDraw.Draw(icon, "RGBA")
-    pad = 1024 * (1 - 0.84) / 2
-    draw_pig(idraw, scale=0.84, offset=(pad, pad))
+    pad = 1024 * (1 - ICON_SCALE) / 2
+    draw_pig(idraw, scale=ICON_SCALE, offset=(pad, pad))
     mask = Image.new("L", (1024, 1024), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, 1023, 1023], radius=240, fill=255)
     icon.putalpha(mask)

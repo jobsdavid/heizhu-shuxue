@@ -152,12 +152,14 @@ data class DailyPoint(
     val speedQuestions: Int = total
 ) {
     val accuracy: Double get() = if (total == 0) 0.0 else correct * 100.0 / total
+
+    /**
+     * 平均每题用时：只用有效速度样本（单题 >SPEED_MAX_MS 的题不算）。
+     * 当天所有题都超时（没有有效样本）时返回 0，曲线那边按「没有数据」画断点，
+     * 不能退回 msTotal/total —— 那个 612 秒就是这么冒出来的。
+     */
     val avgSeconds: Double
-        get() = when {
-            speedQuestions > 0 -> speedMs / 1000.0 / speedQuestions
-            total > 0 -> msTotal / 1000.0 / total
-            else -> 0.0
-        }
+        get() = if (speedQuestions > 0) speedMs / 1000.0 / speedQuestions else 0.0
 }
 
 /** 知识点统计 */
@@ -190,13 +192,13 @@ data class Overall(
 ) {
     val accuracy: Double get() = if (questions == 0) 0.0 else correct * 100.0 / questions
 
-    /** 平均每题用时：只按有效速度样本算（没有样本时退回全部题，避免显示 0） */
+    /**
+     * 平均每题用时：只按有效速度样本算（单题 >SPEED_MAX_MS 的不算）。
+     * 一题有效样本都没有就返回 0（调用方别退回 msTotal/questions，
+     * 那正是「10 分钟没动的一题」把平均速度拉成 612 秒的路径）。
+     */
     val avgSeconds: Double
-        get() = when {
-            speedQuestions > 0 -> speedMs / 1000.0 / speedQuestions
-            questions > 0 -> msTotal / 1000.0 / questions
-            else -> 0.0
-        }
+        get() = if (speedQuestions > 0) speedMs / 1000.0 / speedQuestions else 0.0
 }
 
 /** 距离解锁下一阶段的进度 */
