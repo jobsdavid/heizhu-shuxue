@@ -271,14 +271,14 @@ class WrongBookFragment : Fragment(R.layout.fragment_wrongbook) {
         if (items.isEmpty()) {
             b.tvWrongSub.text = "0 道待攻克$scopeName · 已攻克 $mastered 道"
             b.tvEmpty.visibility = View.VISIBLE
-            b.scroll.visibility = View.GONE
+            b.scrollWrap.visibility = View.GONE
             b.btnPractice.visibility = View.GONE
             b.btnPracticeOne.visibility = View.GONE
             b.stageRow.requestFocus()
             return
         }
         b.tvEmpty.visibility = View.GONE
-        b.scroll.visibility = View.VISIBLE
+        b.scrollWrap.visibility = View.VISIBLE
         b.btnPractice.visibility = View.VISIBLE
         b.btnPracticeOne.visibility = View.VISIBLE
         b.tvWrongSub.text =

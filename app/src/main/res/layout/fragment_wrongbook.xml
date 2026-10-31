@@ -3,8 +3,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_page"
-    android:clipChildren="false"
-    android:clipToPadding="false"
     android:orientation="vertical"
     android:paddingStart="40dp"
     android:paddingTop="20dp"
@@ -88,24 +86,35 @@
         android:textColor="@color/text_dim"
         android:textSize="16sp" />
 
-    <!-- clipChildren 显式打开：根布局为了焦点放大关掉了裁剪，
-         这里必须自己再关回去，否则列表会画到下面的按钮行上 -->
-    <ScrollView
-        android:id="@+id/scroll"
+    <!-- 列表容器必须真正裁到自身边界：Android 的「裁到自身边界」是父容器给子 View 设的
+         （ViewGroup.setClipChildren 会同时改子节点 RenderNode 的 clipToBounds）。页面根
+         布局为了让按钮聚焦描边不被吃掉是 clipChildren=false，ScrollView 因此也跟着不裁剪
+         —— 一旦滚动，错题就会画到标题区上（踩过：翻页时整页被错题占满）。所以外面再套
+         一层强制裁剪的 FrameLayout。 -->
+    <FrameLayout
+        android:id="@+id/scrollWrap"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="10dp"
         android:layout_weight="1"
         android:clipChildren="true"
-        android:clipToPadding="true"
-        android:scrollbars="none">
+        android:clipToPadding="true">
 
-        <LinearLayout
-            android:id="@+id/list"
+        <ScrollView
+            android:id="@+id/scroll"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+            android:layout_height="match_parent"
+            android:clipChildren="true"
+            android:clipToPadding="true"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+    </FrameLayout>
 
     <TextView
         android:id="@+id/tvEmpty"
