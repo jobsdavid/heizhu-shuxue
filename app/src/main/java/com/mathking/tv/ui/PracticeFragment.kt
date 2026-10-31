@@ -729,10 +729,11 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         val dialog = Dialog(requireContext(), R.style.Theme_MathKing_Dialog)
         dialog.setContentView(R.layout.dialog_quit)
         dialog.setCancelable(true)
-        dialog.findViewById<TextView>(R.id.tvQuitHint)?.text = if (done == 0) {
-            "这一轮还没做题，退出不会留下记录"
-        } else {
-            "已经做了 $done 题，退出后这一轮不计入成长曲线"
+        dialog.findViewById<TextView>(R.id.tvQuitHint)?.text = when {
+            done == 0 -> "这一轮还没做题，退出不会留下记录"
+            mode == PlayMode.EXAM ->
+                "考试没考完：本次不计成绩、不算满分；已答的 $done 题会计入今日与成长"
+            else -> "已经做了 $done 题：这一轮不算一场成绩，已答的题计入今日与成长"
         }
         dialog.findViewById<View>(R.id.btnKeep)?.setOnClickListener { dialog.dismiss() }
         dialog.findViewById<View>(R.id.btnQuit)?.setOnClickListener {

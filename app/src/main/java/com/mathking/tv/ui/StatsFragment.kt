@@ -51,7 +51,9 @@ class StatsFragment : Fragment(R.layout.fragment_stats) {
         val app = App.of(requireContext())
         app.repo.async({
             StatsData(
-                overall = app.repo.overall(),
+                // 累计题量/正确率/用时反映「实际做了多少」，半场退出但答过的题也算；
+                // 算力/等级/解锁门槛仍只认完整场次（见 Repo.overall 的 includePartial）
+                overall = app.repo.overall(includePartial = true),
                 daily30 = app.repo.dailyStats(30),
                 daily56 = app.repo.dailyStats(56),
                 tags = app.repo.tagStats(),

@@ -171,7 +171,7 @@ class HomeFragment : Fragment(R.layout.fragment_home) {
             val stageOverall = app.repo.overall(stage.id, excludeWrongBook = true)
             val base = app.repo.challengeStatus(stage)
             HomeData(
-                app.repo.today(), app.repo.overall(), app.repo.wrongCount(),
+                app.repo.today(), app.repo.overall(includePartial = true), app.repo.wrongCount(),
                 app.repo.dailyStats(30),
                 base,
                 app.repo.dailyRecord(todayKey), app.repo.dailyStreak(),

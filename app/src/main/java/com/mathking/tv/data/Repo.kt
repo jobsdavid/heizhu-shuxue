@@ -304,7 +304,7 @@ class Repo(context: Context, userId: Long = 0L) {
         var tries = 0
         db.rawQuery(
             "SELECT MIN(a.ms), MAX(a.ms), AVG(a.ms), COUNT(*) FROM attempt a " +
-                "JOIN session s ON a.session_id = s.id WHERE s.stage_id=?",
+                "JOIN session s ON a.session_id = s.id WHERE s.finished=1 AND s.stage_id=?",
             arrayOf(stageId)
         ).use { c ->
             if (c.moveToFirst() && c.getInt(3) > 0) {
@@ -364,9 +364,12 @@ class Repo(context: Context, userId: Long = 0L) {
     fun overall(
         stageId: String? = null,
         excludeChallenge: Boolean = true,
-        excludeWrongBook: Boolean = false
+        excludeWrongBook: Boolean = false,
+        /** true = 半途退出但已答过题的场次也算（「实际做了多少题」）；
+         *  false = 只算完整结束的场次（算力 / 等级 / 解锁门槛必须用这个，否则半场能刷门槛） */
+        includePartial: Boolean = false
     ): Overall {
-        val conds = mutableListOf("finished=1")
+        val conds = mutableListOf(if (includePartial) "total>0" else "finished=1")
         val args = mutableListOf<String>()
         if (stageId != null) {
             conds.add("stage_id=?")
@@ -417,7 +420,7 @@ class Repo(context: Context, userId: Long = 0L) {
             """
             SELECT COUNT(*), IFNULL(SUM(total),0), IFNULL(SUM(correct_first),0), IFNULL(SUM(duration_ms),0)
             FROM session
-            WHERE finished=1 AND mode != 'challenge'
+            WHERE total>0 AND mode != 'challenge'
               AND date(started_at/1000, 'unixepoch', 'localtime') = ?
             """.trimIndent(),
             arrayOf(today)
@@ -436,7 +439,7 @@ class Repo(context: Context, userId: Long = 0L) {
             SELECT date(started_at/1000, 'unixepoch', 'localtime') AS day,
                    SUM(total), SUM(correct_first), SUM(duration_ms)
             FROM session
-            WHERE finished=1 AND mode != 'challenge' AND started_at >= ?
+            WHERE total>0 AND mode != 'challenge' AND started_at >= ?
             GROUP BY day ORDER BY day
             """.trimIndent(),
             arrayOf(since.toString())
@@ -465,7 +468,7 @@ class Repo(context: Context, userId: Long = 0L) {
             """
             SELECT a.tag, COUNT(*), SUM(a.first_ok)
             FROM attempt a JOIN session s ON a.session_id = s.id
-            WHERE s.finished=1 AND s.mode != 'challenge' $where
+            WHERE s.total>0 AND s.mode != 'challenge' $where
             GROUP BY a.tag ORDER BY COUNT(*) DESC
             """.trimIndent(),
             args
