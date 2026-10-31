@@ -545,7 +545,11 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         tickRunnable = null
     }
 
-    private fun idleEnabled(): Boolean = mode == PlayMode.PRACTICE || mode == PlayMode.WRONG
+    /**
+     * 每种模式都要「发呆就再读一遍题」：孩子卡住发呆不分练习还是考试，
+     * 题面重读不泄答案（考试里只是不给「小提示」，见 onIdle）。
+     */
+    private fun idleEnabled(): Boolean = true
 
     private fun resetIdle() {
         stopIdle()
@@ -578,7 +582,8 @@ class PracticeFragment : Fragment(R.layout.fragment_practice), DigitInput {
         val prompt = Speech.idlePrompt(idleCount)
         val text = if (q.speak.isBlank()) prompt else "$prompt，${q.speak}"
         speakRaw(text)
-        if (q.hint.isNotBlank()) {
+        // 考试里不给思路提示（只在重读题面），免得变成开卷
+        if (q.hint.isNotBlank() && mode != PlayMode.EXAM) {
             b.tvHint.text = "小提示：${q.hint}"
             b.tvHint.setTextColor(Ui.color(requireContext(), R.color.accent))
         }
